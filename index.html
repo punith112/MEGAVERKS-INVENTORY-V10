@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MEGAVERKS Inventory V10</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--line:#e2e8f0;--ink:#0f172a;--mut:#64748b;--ind:#4f46e5;--ind2:#6366f1;
+--red:#dc2626;--amb:#d97706;--grn:#059669;--blu:#2563eb;--vio:#7c3aed;--slate:#0f172a}
+*{box-sizing:border-box;margin:0}body{font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--ink);font-size:14px}
+header{background:var(--slate);border-bottom:1px solid #334155;position:sticky;top:0;z-index:40}
+.hwrap{max-width:1400px;margin:auto;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.logo{width:34px;height:34px;border-radius:8px;background:var(--ind);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+.brand{color:#fff;font-weight:700;font-size:13px;line-height:1.15}.brand small{color:#a5b4fc;font-weight:500;font-size:10.5px}
+nav{display:flex;flex-wrap:wrap;gap:3px}
+nav a{display:flex;gap:5px;align-items:center;padding:6px 11px;border-radius:6px;color:#cbd5e1;text-decoration:none;font-size:13px;font-weight:500}
+nav a.on{background:var(--ind);color:#fff}nav a:hover{background:#334155;color:#fff}
+.actor{margin-left:auto;background:none;border:1px solid #475569;color:#fcd34d;padding:6px 11px;border-radius:6px;cursor:pointer;font-size:13px}
+.actor.set{color:#6ee7b7;border-color:#059669}
+main{max-width:1400px;margin:auto;padding:18px 14px 60px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px;display:flex;gap:11px;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.ic{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+.stat b{font-size:19px;display:block;line-height:1.1}.stat span{font-size:11px;color:var(--mut)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden}
+input,select,textarea{padding:8px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;background:#fff;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid #c7d2fe;border-color:var(--ind)}
+.btn{padding:8px 14px;border-radius:7px;border:1px solid transparent;font-size:13px;font-weight:600;cursor:pointer;background:var(--ind);color:#fff}
+.btn:hover{background:var(--ind2)}.btn.o{background:#fff;color:var(--ink);border-color:#cbd5e1}.btn.o:hover{background:#f1f5f9}
+.btn.r{background:var(--red)}.btn.sm{padding:5px 9px;font-size:12px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.tblwrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f1f5f9;text-align:left;padding:9px 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:#475569;white-space:nowrap}
+td{padding:8px 10px;border-top:1px solid var(--line);vertical-align:middle}
+tr:hover td{background:#f8fafc}.r{text-align:right}.mut{color:var(--mut)}.b{font-weight:700}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;border:1px solid}
+.g{background:#dcfce7;color:#15803d;border-color:#bbf7d0}.a{background:#fef3c7;color:#b45309;border-color:#fde68a}
+.rd{background:#fee2e2;color:#b91c1c;border-color:#fecaca}.bl{background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe}
+.gr{background:#f1f5f9;color:#475569;border-color:#e2e8f0}.vi{background:#ede9fe;color:#6d28d9;border-color:#ddd6fe}
+img.thumb{width:40px;height:40px;border-radius:6px;object-fit:cover;border:1px solid var(--line);cursor:pointer;background:#f1f5f9}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;z-index:100;overflow:auto}
+.modal{background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal h3{margin-bottom:12px;font-size:16px}.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.lbl{font-size:11px;font-weight:600;color:#475569;display:block;margin-bottom:4px;text-transform:uppercase}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+#toasts{position:fixed;top:14px;right:14px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{background:#0f172a;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.3);animation:tin .2s;max-width:340px}
+.toast.err{background:var(--red)}.toast.ok{background:var(--grn)}
+@keyframes tin{from{transform:translateX(30px);opacity:0}}
+.h1{font-size:19px;font-weight:800;display:flex;gap:8px;align-items:center;margin-bottom:2px}
+.sub{color:var(--mut);font-size:12px;margin-bottom:12px}.tabs{display:flex;gap:6px;margin-bottom:10px}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:12px;color:#92400e;margin:10px 0}
+pre.pv{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:220px;overflow:auto}
+/* login */
+.lock{position:fixed;inset:0;background:linear-gradient(160deg,#0f172a,#1e1b4b);display:flex;align-items:center;justify-content:center;z-index:500}
+.lockbox{background:#fff;border-radius:16px;padding:30px;width:100%;max-width:380px;box-shadow:0 30px 80px rgba(0,0,0,.5);text-align:center}
+.lockbox .logo{width:52px;height:52px;font-size:24px;margin:0 auto 12px}
+.lockbox h2{font-size:16px;margin-bottom:2px}.lockbox p{font-size:12px;color:var(--mut);margin-bottom:18px}
+.lockbox input{width:100%;text-align:center;font-size:16px;letter-spacing:2px;padding:11px;margin-bottom:10px}
+.lockerr{color:var(--red);font-size:12px;min-height:16px;margin-bottom:6px}
+.remember{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--mut);justify-content:center;margin-bottom:14px}
+@media(max-width:700px){.frow,.frow3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="hwrap">
+  <div class="logo">M</div>
+  <div class="brand">MEGAVERKS TECHNOLOGIES<br><small>& VENGREE METAL PUNCH PVT. LTD</small></div>
+  <nav id="nav"></nav>
+  <button class="actor" id="actorBtn" onclick="actorDialog()">Set your name</button>
+  <span id="syncTag" title="Last cloud sync" style="color:#94a3b8;font-size:11px"></span>
+  <button class="actor set" id="logoutBtn" style="display:none" onclick="logout()">⏻ Logout</button>
+</div></header>
+<main id="app"><p style="padding:40px 14px 8px;text-align:center;color:#64748b">Loading…</p>
+<p style="text-align:center"><a href="#admin" style="font-size:12px;color:#6366f1" onclick="setTimeout(route,50)">Stuck here? Open Admin → Settings to fix the connection</a></p></main>
+<div id="toasts"></div>
+
+<script>
+/* ================= CONFIG / STATE ================= */
+const API = localStorage.getItem('mv_api') || 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL';
+const API_UNSET = !localStorage.getItem('mv_api');
+const ENTITIES = ['items','products','vendors','customers','invoices','payments','pos','poLines','bom','movements','audit'];
+const DB = {}; ENTITIES.forEach(e=>DB[e]=[]);   // pre-fill so pages render even before/without a backend
+let ACTOR = localStorage.getItem('mv_actor') || '';
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const inr = n => '₹' + Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0});
+const today = () => new Date().toISOString().slice(0,10);
+
+function token(){ return sessionStorage.getItem('mv_tok') || localStorage.getItem('mv_tok') || ''; }
+/* never hang forever on a dead/wrong URL (override via localStorage mv_timeout for slow networks) */
+const FETCH_TIMEOUT = Number(localStorage.getItem('mv_timeout')) || 20000;
+/* flat query-string when possible (works even with older deployed doGet), else JSON payload param */
+function toQuery(p){
+  const flat={};
+  for(const k in p){ const v=p[k]; if(v==null||v==='') continue;
+    if(typeof v==='object') return null;
+    flat[k]=String(v); }
+  return new URLSearchParams(flat).toString();
+}
+async function api(p){
+  const full=Object.assign({actor:ACTOR,token:token()},p);
+  const body=JSON.stringify(full);
+  let r, text;
+  try{
+    r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body,redirect:'follow',signal:AbortSignal.timeout(FETCH_TIMEOUT)});
+    text=await r.text();
+  }catch(e){
+    throw new Error('Cannot reach the backend (timeout or offline) — check your internet and that the correct Apps Script /exec URL is saved in Admin → Settings.');
+  }
+  /* HTTP 405 = the deployment refused POST (stale version, library URL, or a proxy).
+     Retry once as GET — the fixed Code.gs understands both plain params and ?payload=JSON. */
+  if(r.status===405 && body.length<6000){
+    try{
+      const qs=toQuery(full) || ('payload='+encodeURIComponent(body));
+      const r2=await fetch(API+(API.includes('?')?'&':'?')+qs,{method:'GET',redirect:'follow',signal:AbortSignal.timeout(FETCH_TIMEOUT)});
+      const t2=await r2.text();
+      if(t2){ r=r2; text=t2; }
+    }catch(e){ /* keep the original 405 response for the error message below */ }
+  }
+  let j = null;
+  try{ j = JSON.parse(text); }
+  catch(e){
+    const head = text.slice(0, 4000);
+    if(/accounts\.google\.com|sign in to continue|ServiceLogin/i.test(head))
+      throw new Error('The web app asked for a Google sign-in. Fix: Apps Script → Deploy → Manage deployments → ✏️ → set "Who has access" to "Anyone" → Deploy, then copy the new /exec URL into Admin → Settings.');
+    if(r.status===405)
+      throw new Error('HTTP 405 — the deployed script refused the request. Fix: paste the latest Code.gs in Apps Script, then Deploy → Manage deployments → ✏️ → Version "New version" → Deploy, and copy the Web app /exec URL (NOT the "Library" URL) into Admin → Settings.');
+    if(r.status >= 400 || /Service Unavailable|scripts\.google\.com/i.test(head))
+      throw new Error('Apps Script returned HTTP ' + r.status + '. Fix: Deploy → Manage deployments → ✏️ → "New version" → Deploy, and copy the /exec URL again.');
+    throw new Error('Backend returned a web page instead of data — the saved URL is probably wrong. Use the Web app /exec URL from Deploy → Manage deployments (not the Library URL).');
+  }
+  if(!j.ok){
+    if(/Not authorised/i.test(j.error||'')){ // session expired / passcode changed
+      sessionStorage.removeItem('mv_tok'); localStorage.removeItem('mv_tok');
+      toast('Session expired — sign in again','err'); setTimeout(()=>location.reload(),800);
+    }
+    throw new Error(j.error||'API error');
+  }
+  return j.data;
+}
+async function loadAll(){
+  const results = await Promise.allSettled(ENTITIES.map(e=>api({action:'list',entity:e})));
+  const failed = results.filter(x=>x.status==='rejected');
+  if(failed.length === ENTITIES.length) throw failed[0].reason;   // backend totally unreachable → error card
+  ENTITIES.forEach((e,i)=>DB[e]=results[i].status==='fulfilled'?results[i].value:[]);
+}
+
+/* ---------- passcode gate ---------- */
+function showLock(){
+  return new Promise(resolve=>{
+    const d=document.createElement('div'); d.className='lock';
+    d.innerHTML=`<div class="lockbox">
+      <div class="logo">M</div>
+      <h2>MEGAVERKS Inventory V10</h2>
+      <p>Enter the passcode to continue</p>
+      <input id="lk_pass" type="password" placeholder="••••••••" autocomplete="current-password">
+      <div class="lockerr" id="lk_err"></div>
+      <label class="remember"><input type="checkbox" id="lk_rem"> Keep me signed in on this device</label>
+      <button class="btn" style="width:100%" id="lk_go">Unlock</button>
+      ${API_UNSET?`<p style="margin-top:12px"><a href="#admin" id="lk_setup" style="font-size:12px;color:#6366f1">First time? Set up the backend connection →</a></p>`:''}</div>`;
+    document.body.appendChild(d);
+    const go=async()=>{
+      const btn=$('#lk_go'); btn.disabled=true; $('#lk_err').textContent='';
+      if(API_UNSET){ $('#lk_err').textContent='No backend URL saved yet — click "Set up the backend connection" below.'; btn.disabled=false; return; }
+      try{
+        const res=await api({action:'verify',passcode:$('#lk_pass').value});
+        if(res.valid){
+          if($('#lk_rem').checked) localStorage.setItem('mv_tok',res.token);
+          else sessionStorage.setItem('mv_tok',res.token);
+          d.remove(); resolve(true); return;
+        }
+        $('#lk_err').textContent='Wrong passcode — try again';
+      }catch(e){ $('#lk_err').textContent=e.message; }
+      btn.disabled=false;
+    };
+    $('#lk_go').onclick=go;
+    $('#lk_pass').onkeydown=e=>{ if(e.key==='Enter') go(); };
+    const setup=$('#lk_setup');
+    if(setup) setup.onclick=e=>{ e.preventDefault(); d.remove(); resolve(false); };
+    setTimeout(()=>$('#lk_pass').focus(),100);
+  });
+}
+async function gate(){
+  if(token()) return true;               // already have a (day) token
+  return showLock();                     // blocks until unlocked
+}
+function logout(){
+  sessionStorage.removeItem('mv_tok'); localStorage.removeItem('mv_tok');
+  location.reload();
+}
+
+/* ================= UI helpers ================= */
+function toast(msg,type){ const t=document.createElement('div'); t.className='toast '+(type||''); t.textContent=msg;
+  $('#toasts').appendChild(t); setTimeout(()=>t.remove(), type==='err'?6000:3200); }
+function modal(title, body, foot){
+  const o=document.createElement('div'); o.className='overlay';
+  o.innerHTML=`<div class="modal"><h3>${title}</h3>${body}<div class="mfoot">${foot||''}</div></div>`;
+  o.onclick=e=>{ if(e.target===o) o.remove(); }; document.body.appendChild(o); return o;
+}
+function actorDialog(){
+  const o=modal('Who is using the app?',`<p class="sub">Your name is attached to every change (audit log). It stays on this device.</p>
+    <input id="aName" style="width:100%" value="${esc(ACTOR)}" placeholder="e.g. Arun Kumar">`,
+    `<button class="btn o" onclick="this.closest('.overlay').remove()">Cancel</button><button class="btn" onclick="saveActor()">Save</button>`);
+  o.querySelector('#aName').focus();
+}
+function saveActor(){ const v=$('#aName').value.trim(); if(!v) return toast('Enter your name','err');
+  ACTOR=v; localStorage.setItem('mv_actor',v); $('#actorBtn').textContent=v; $('#actorBtn').classList.add('set');
+  document.querySelector('.overlay').remove(); toast('Working as '+v,'ok'); }
+function confirmDlg(msg,fn){ modal('Please confirm',`<p>${msg}</p>`,
+  `<button class="btn o" onclick="this.closest('.overlay').remove()">Cancel</button><button class="btn r" id="cfYes">Yes, proceed</button>`)
+  .querySelector('#cfYes').onclick=()=>{ document.querySelector('.overlay').remove(); fn(); }; }
+
+/* ================= IMAGES (Google Drive) ================= */
+function fileToDataUrl(file,maxW,q){ return new Promise((res,rej)=>{ const rd=new FileReader();
+  rd.onload=()=>{ const img=new Image(); img.onload=()=>{ let w=img.width,h=img.height;
+    const s=Math.min(1,(maxW||1200)/w); const c=document.createElement('canvas');
+    c.width=Math.round(w*s); c.height=Math.round(h*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    res(c.toDataURL('image/jpeg',q||0.75)); }; img.onerror=()=>rej(new Error('Invalid image'));
+    img.src=String(rd.result); }; rd.onerror=()=>rej(new Error('Read failed')); rd.readAsDataURL(file); }); }
+/* upload to the Drive folder via the script; only the returned link is stored in the sheet */
+async function driveUpload(file){
+  const dataUrl=await fileToDataUrl(file,1200,0.75);
+  const r=await api({action:'uploadImage',name:file.name||'image.jpg',dataUrl:dataUrl});
+  return r;
+}
+function isImgUrl(v){ return v && !/^data:/.test(v); }
+
+/* ================= CSV ================= */
+function parseCSV(text){
+  const rows=[]; let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else if(c==='"') q=true;
+    else if(c===','){ row.push(cur); cur=''; }
+    else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(cur); rows.push(row); row=[]; cur=''; }
+    else cur+=c; }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+function toCSV(rows){ return rows.map(r=>r.map(c=>{ c=String(c==null?'':c);
+  return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(',')).join('\n'); }
+function download(name,text,mime){ const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type:mime||'text/csv'})); a.download=name; a.click(); }
+const normH = s => String(s||'').trim().toLowerCase().replace(/\(.*?\)/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+function mapHeaders(headerRow, aliasMap){
+  const map={};
+  headerRow.forEach((h,idx)=>{ const n=normH(h);
+    for(const key in aliasMap) if(aliasMap[key].some(a=>normH(a)===n)){ map[key]=idx; break; } });
+  return map;
+}
+const ALIASES = {
+  items:{name:['Item Name','Name','Name of Items','Item'],partNumber:['Part Number','Part No','PartNumber'],company:['Company'],vendorName:['Vendor Name','Vendor'],materialType:['Material Type','Material'],source:['Source'],price:['Price'],moq:['MOQ'],leadTime:['Lead Time'],stockInHand:['Stock In Hand','Stock','Qty','Quantity'],minStock:['Min Stock','Minimum Stock']},
+  vendors:{name:['Vendor Name','Name','Vendor'],contactPerson:['Contact Person','Contact'],phone:['Phone','Mobile'],email:['Email'],address:['Address'],gstin:['GSTIN','GST','GST No'],googleLocation:['Google Location','Location'],purchaseManager:['Purchase Manager','Manager'],creditLimit:['Credit Limit'],creditDays:['Credit Days'],notes:['Notes']},
+  products:{name:['Product Name','Name','Product','Article','Article Name'],company:['Company'],description:['Description','Description / Packing Instructions']},
+  pos:{poNumber:['PO Number','PO No','PO'],poDate:['PO Date','Date'],customerName:['Customer Name','Customer'],customerPartName:['Customer Part Name','Customer Item'],customerPartNumber:['Customer Part Number','Customer Part No'],productName:['Our Product / Article','Product','Article','Product Name'],qty:['Qty','Quantity'],notes:['Notes']}
+};
+
+/* ================= ROUTER ================= */
+const PAGES = [
+  ['inventory','📦','Inventory'],['orders','📋','Orders'],['customers','👤','Customers'],
+  ['analysis','📊','Analysis'],['bills','🧾','Bills'],['vendors','🚚','Vendors'],
+  ['products','🧩','Products'],['admin','🛡️','Admin']
+];
+function route(){
+  const h=(location.hash||'#inventory').slice(1);
+  $('#nav').innerHTML=PAGES.map(p=>`<a href="#${p[0]}" class="${p[0]===h?'on':''}">${p[1]} ${p[2]}</a>`).join('');
+  ({inventory:pgInventory,products:pgProducts,vendors:pgVendors,bills:pgBills,
+    customers:pgCustomers,orders:pgOrders,analysis:pgAnalysis,admin:pgAdmin}[h]||pgInventory)();
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange',route);
+
+/* ================= SHARED ================= */
+function statCards(cards){ return `<div class="stats">${cards.map(c=>
+  `<div class="stat"><div class="ic" style="background:${c.bg};color:${c.fg}">${c.icon}</div>
+   <div><b>${c.v}</b><span>${c.l}</span></div></div>`).join('')}</div>`; }
+function item(id){ return DB.items.find(i=>Number(i.id)===Number(id)); }
+function product(id){ return DB.products.find(p=>Number(p.id)===Number(id)); }
+function vendor(id){ return DB.vendors.find(v=>Number(v.id)===Number(id)); }
+function customer(id){ return DB.customers.find(c=>Number(c.id)===Number(id)); }
+function stockStatus(it){ const h=Number(it.stockInHand)||0;
+  if(h===0) return ['OUT OF STOCK','rd']; if(Number(it.minStock)>0&&h<Number(it.minStock)) return ['LOW STOCK','a'];
+  return ['AVAILABLE','g']; }
+function vendorOptions(sel){ return `<option value="">— No vendor —</option>`+DB.vendors.map(v=>
+  `<option value="${v.id}" ${Number(sel)===Number(v.id)?'selected':''}>${esc(v.name)}</option>`).join(''); }
+function productOptions(sel){ return `<option value="">— Not linked —</option>`+DB.products.map(p=>
+  `<option value="${p.id}" ${Number(sel)===Number(p.id)?'selected':''}>${esc(p.name)}</option>`).join(''); }
+function customerOptions(sel){ return DB.customers.map(c=>
+  `<option value="${c.id}" ${Number(sel)===Number(c.id)?'selected':''}>${esc(c.name)}</option>`).join(''); }
+function exportCSV(name,headers,rows){ download(name+'.csv',toCSV([headers].concat(rows)),'text/csv'); toast('Exported '+name,'ok'); }
+function reloadAndStay(msg,type){ return loadAll().then(()=>{ syncStamp(); route(); if(msg) toast(msg,type||'ok'); }); }
+
+/* ---------- automatic cloud sync ---------- */
+let _syncT=null;
+function syncStamp(){ const t=$('#syncTag'); if(t) t.textContent='Synced '+new Date().toLocaleTimeString(); }
+function startAutoSync(){
+  clearInterval(_syncT);
+  _syncT=setInterval(async()=>{
+    if(document.querySelector('.overlay') || document.querySelector('.lock')) return; // don't clobber open dialogs
+    const before=JSON.stringify(DB);
+    try{ await loadAll(); }catch(e){ const t=$('#syncTag'); if(t) t.textContent='⚠ offline'; return; }
+    if(JSON.stringify(DB)!==before){ syncStamp(); route(); toast('New data synced from the cloud','ok'); }
+    else syncStamp();
+  }, 45000);
+  window.addEventListener('focus',()=>{ if(document.querySelector('.overlay')||document.querySelector('.lock')) return;
+    loadAll().then(syncStamp).catch(()=>{}); });   // pull latest whenever the tab is brought back
+}
+
+/* ================= INVENTORY ================= */
+let invF={search:'',company:'ALL',productId:'ALL',source:'ALL',materialType:'ALL'};
+function pgInventory(){
+  const items=DB.items, prods=DB.products;
+  const totQty=items.reduce((s,i)=>s+(Number(i.stockInHand)||0),0);
+  const totVal=items.reduce((s,i)=>s+(Number(i.stockInHand)||0)*(Number(i.price)||0),0);
+  const low=items.filter(i=>Number(i.minStock)>0&&(Number(i.stockInHand)||0)<Number(i.minStock)).length;
+  const out=items.filter(i=>(Number(i.stockInHand)||0)===0).length;
+  const mtypes=[...new Set(items.map(i=>i.materialType).filter(Boolean))].sort();
+  const f=invF;
+  const filtered=items.filter(i=>{
+    const q=f.search.toLowerCase();
+    if(q && !((i.name||'')+' '+(i.partNumber||'')+' '+(i.vendorName||'')).toLowerCase().includes(q)) return false;
+    if(f.company!=='ALL'&&i.company!==f.company) return false;
+    if(f.productId!=='ALL'&&Number(i.productId)!==Number(f.productId)) return false;
+    if(f.source!=='ALL'&&(i.source||'vendor')!==f.source) return false;
+    if(f.materialType!=='ALL'&&i.materialType!==f.materialType) return false;
+    return true; });
+  const head=(t)=>`<th>${t}</th>`;
+  $('#app').innerHTML=`
+  ${statCards([
+    {icon:'📦',l:'Total Items',v:items.length,bg:'#e0e7ff',fg:'#4f46e5'},
+    {icon:'⇄',l:'Total Qty In Hand',v:totQty.toLocaleString('en-IN'),bg:'#dbeafe',fg:'#2563eb'},
+    {icon:'₹',l:'Stock Value',v:inr(totVal),bg:'#d1fae5',fg:'#059669'},
+    {icon:'🏭',l:'Vendors',v:DB.vendors.length,bg:'#ede9fe',fg:'#7c3aed'},
+    {icon:'⚠️',l:'Low Stock',v:low,bg:'#fef3c7',fg:'#d97706'},
+    {icon:'✖',l:'Out of Stock',v:out,bg:'#fee2e2',fg:'#dc2626'}])}
+  <div class="toolbar">
+    <input placeholder="Search item, vendor, part number…" style="min-width:230px" value="${esc(f.search)}" oninput="invF.search=this.value;pgInventory()">
+    <select onchange="invF.company=this.value;pgInventory()">
+      <option value="ALL">All Companies</option><option ${f.company==='MEGAVERKS'?'selected':''}>MEGAVERKS</option><option ${f.company==='VENGREE'?'selected':''}>VENGREE</option></select>
+    <select onchange="invF.productId=this.value;pgInventory()"><option value="ALL">All Products</option>
+      ${prods.map(p=>`<option value="${p.id}" ${Number(f.productId)===Number(p.id)?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+    <select onchange="invF.source=this.value;pgInventory()">
+      <option value="ALL">Inhouse + Vendor</option><option value="inhouse" ${f.source==='inhouse'?'selected':''}>Inhouse Sheetmetal</option>
+      <option value="vendor" ${f.source==='vendor'?'selected':''}>Bought Out (Vendor)</option></select>
+    <select onchange="invF.materialType=this.value;pgInventory()"><option value="ALL">All Material Types</option>
+      ${mtypes.map(t=>`<option ${f.materialType===t?'selected':''}>${esc(t)}</option>`).join('')}</select>
+    <span style="flex:1"></span>
+    <button class="btn o" onclick="bulkDlg('items')">⇪ Bulk Upload</button>
+    <button class="btn o" onclick="exportInv()">⇩ Export</button>
+    <button class="btn" onclick="itemDlg(0)">＋ Add Item</button>
+  </div>
+  <div class="card tblwrap"><table><thead><tr>
+    ${head('#')}${head('Image')}${head('Item / Part No.')}${head('Vendor')}${head('Price')}${head('MOQ')}${head('Lead')}
+    ${head('Product')}${head('In')}${head('Out')}${head('In Hand')}${head('Status')}${head('Actions')}
+  </tr></thead><tbody>
+  ${filtered.length===0?`<tr><td colspan="13" class="mut" style="text-align:center;padding:30px">No items found. Click "Add Item".</td></tr>`:
+    filtered.map((it,ix)=>{ const st=stockStatus(it); const p=product(it.productId);
+    return `<tr><td class="mut">${ix+1}</td>
+    <td>${it.imageData?`<img class="thumb" src="${esc(it.imageData)}" onclick="viewItem(${it.id})">`:`<div class="ic" style="width:40px;height:40px;background:#f1f5f9;color:#cbd5e1">▨</div>`}</td>
+    <td><div class="b">${esc(it.name)} ${it.instructions?'📝':''}</div><div class="mut" style="font-size:11px">${esc(it.partNumber||'—')}</div></td>
+    <td>${esc(it.vendorName||'—')}</td><td class="r">${it.price?inr(it.price):'—'}</td>
+    <td>${esc(it.moq||'—')}</td><td>${esc(it.leadTime||'—')}</td>
+    <td>${p?`<span class="badge gr">${esc(p.name)}</span>`:'<span class="mut">—</span>'}</td>
+    <td class="r" style="color:#1d4ed8">${Number(it.stockInput||0).toLocaleString('en-IN')}</td>
+    <td class="r" style="color:#c2410c">${Number(it.stockOutput||0).toLocaleString('en-IN')}</td>
+    <td class="r b">${Number(it.stockInHand||0).toLocaleString('en-IN')}</td>
+    <td><span class="badge ${st[1]}">${st[0]}</span></td>
+    <td class="r"><button class="btn o sm" title="Stock In/Out" onclick="stockDlg(${it.id})">⇄</button>
+      <button class="btn o sm" title="Edit" onclick="itemDlg(${it.id})">✎</button>
+      <button class="btn o sm" style="color:#dc2626" title="Delete" onclick="delItem(${it.id})">🗑</button></td></tr>`; }).join('')}
+  </tbody></table></div><p class="mut" style="text-align:right;font-size:11px;margin-top:6px">${filtered.length} item(s) shown</p>`;
+}
+function exportInv(){ const f=invF;
+  const rows=DB.items.filter(i=>{ if(f.company!=='ALL'&&i.company!==f.company)return false;
+    if(f.productId!=='ALL'&&Number(i.productId)!==Number(f.productId))return false;
+    if(f.source!=='ALL'&&(i.source||'vendor')!==f.source)return false;
+    if(f.materialType!=='ALL'&&i.materialType!==f.materialType)return false; return true; });
+  exportCSV('Inventory',['Item','Part No','Material','Source','Vendor','Price','MOQ','Lead','Product','In','Out','In Hand','Status'],
+    rows.map(i=>[i.name,i.partNumber,i.materialType||'',i.source==='inhouse'?'Inhouse Sheetmetal':'Vendor',i.vendorName||'',i.price||'',i.moq||'',i.leadTime||'',(product(i.productId)||{}).name||'',i.stockInput||0,i.stockOutput||0,i.stockInHand||0,stockStatus(i)[0]])); }
+function viewItem(id){ const it=item(id); if(!it) return; const p=product(it.productId);
+  modal(esc(it.name),`${it.imageData?`<img src="${esc(it.imageData)}" style="width:100%;border-radius:8px;border:1px solid var(--line);margin-bottom:10px">`:''}
+  <table style="font-size:13px">${[['Company',it.company==='VENGREE'?'VENGREE METAL PUNCH':'MEGAVERKS TECHNOLOGIES'],['Part Number',it.partNumber],['Vendor',it.vendorName],['Price',it.price?inr(it.price):'—'],['MOQ',it.moq],['Lead Time',it.leadTime],['Product Used',p?p.name:'—'],['Stock In Hand',(it.stockInHand||0)+' Nos']]
+  .map(r=>`<tr><td class="mut" style="width:140px;padding:3px 0">${r[0]}</td><td>${esc(r[1]||'—')}</td></tr>`).join('')}</table>
+  ${it.instructions?`<div class="note"><b>Instructions</b><br>${esc(it.instructions)}</div>`:''}`,
+  `<button class="btn" onclick="document.querySelector('.overlay').remove()">Close</button>`); }
+function itemDlg(id){
+  const it=id?item(id):{company:'MEGAVERKS',source:'vendor'};
+  const o=modal(id?'Edit Item':'Add Item',`
+  <input type="hidden" id="f_id" value="${id||''}">
+  <div class="frow"><div><span class="lbl">Item Name *</span><input id="f_name" style="width:100%" value="${esc(it.name||'')}"></div>
+  <div><span class="lbl">Part Number</span><input id="f_pn" style="width:100%" value="${esc(it.partNumber||'')}"></div></div>
+  <div class="frow3"><div><span class="lbl">Company</span><select id="f_co" style="width:100%"><option ${it.company==='MEGAVERKS'?'selected':''}>MEGAVERKS</option><option ${it.company==='VENGREE'?'selected':''}>VENGREE</option></select></div>
+  <div><span class="lbl">Source</span><select id="f_src" style="width:100%"><option value="vendor" ${it.source!=='inhouse'?'selected':''}>Bought Out (Vendor)</option><option value="inhouse" ${it.source==='inhouse'?'selected':''}>Inhouse Sheetmetal</option></select></div>
+  <div><span class="lbl">Vendor</span><select id="f_ven" style="width:100%">${vendorOptions(it.vendorId)}</select></div></div>
+  <div class="frow3"><div><span class="lbl">Material Type</span><input id="f_mt" style="width:100%" value="${esc(it.materialType||'')}"></div>
+  <div><span class="lbl">Price (₹)</span><input id="f_pr" type="number" step="any" style="width:100%" value="${it.price||''}"></div>
+  <div><span class="lbl">MOQ</span><input id="f_moq" style="width:100%" value="${esc(it.moq||'')}"></div></div>
+  <div class="frow3"><div><span class="lbl">Lead Time</span><input id="f_lt" style="width:100%" value="${esc(it.leadTime||'')}"></div>
+  <div><span class="lbl">Product Used</span><select id="f_prod" style="width:100%">${productOptions(it.productId)}</select></div>
+  <div><span class="lbl">Min Stock</span><input id="f_min" type="number" style="width:100%" value="${it.minStock||0}"></div></div>
+  <div><span class="lbl">Instructions</span><textarea id="f_ins" style="width:100%" rows="2">${esc(it.instructions||'')}</textarea></div>
+  <div style="margin-top:8px"><span class="lbl">Image (stored in Google Drive — only the link is saved in the sheet)</span>
+    <input type="file" accept="image/*" id="f_img">
+    <div id="f_imgst" class="mut" style="font-size:11px;margin-top:3px">${it.imageData?(isImgUrl(it.imageData)?'Current: Drive image (kept unless replaced)':'Current: embedded image (kept unless replaced)'):'No image yet'}</div></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="fSave" onclick="saveItem()">Save Item</button>`);
+  o.dataset.img = it.imageData||'';
+  o.querySelector('#f_img').onchange = async e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const st=o.querySelector('#f_imgst');
+    st.textContent='Uploading to Google Drive…';
+    try{ const r=await driveUpload(file); o.dataset.img=r.url; st.textContent='✓ Uploaded: '+r.viewUrl; st.style.color='#059669'; toast('Image saved to Drive','ok'); }
+    catch(err){ st.textContent='Upload failed: '+err.message; st.style.color='#dc2626'; toast(err.message,'err'); }
+  };
+}
+async function saveItem(){
+  const id=$('#f_id').value, name=$('#f_name').value.trim(); if(!name) return toast('Item name required','err');
+  const ven=$('#f_ven'); const rec={ name, partNumber:$('#f_pn').value.trim(), company:$('#f_co').value,
+    source:$('#f_src').value, vendorId:ven.value||'', vendorName:ven.value?(ven.options[ven.selectedIndex].text):'',
+    materialType:$('#f_mt').value.trim(), price:$('#f_pr').value||'', moq:$('#f_moq').value.trim(),
+    leadTime:$('#f_lt').value.trim(), productId:$('#f_prod').value||'', minStock:$('#f_min').value||0,
+    instructions:$('#f_ins').value, imageData:document.querySelector('.overlay').dataset.img||'' };
+  try{ $('#fSave').disabled=true;
+    if(id){ rec.id=id; const old=item(id); Object.assign(rec,{stockInput:old.stockInput,stockOutput:old.stockOutput,stockInHand:old.stockInHand,createdAt:old.createdAt});
+      await api({action:'update',entity:'items',record:rec}); }
+    else await api({action:'create',entity:'items',record:rec});
+    document.querySelector('.overlay').remove(); reloadAndStay(id?'Item updated':'Item added');
+  }catch(e){ $('#fSave').disabled=false; toast(e.message,'err'); }
+}
+function delItem(id){ const it=item(id); if(!it) return;
+  confirmDlg(`Delete <b>"${esc(it.name)}"</b>? This removes the item and its stock history permanently.`,
+    ()=>api({action:'remove',entity:'items',id}).then(()=>reloadAndStay('Item deleted'))); }
+function stockDlg(id){ const it=item(id); if(!it) return;
+  modal('Stock In / Out — '+esc(it.name),`
+  <p class="sub">Current stock in hand: <b>${it.stockInHand||0}</b></p>
+  <div class="frow"><div><span class="lbl">Type</span><select id="s_type" style="width:100%"><option value="IN">Stock IN</option><option value="OUT">Stock OUT</option></select></div>
+  <div><span class="lbl">Qty *</span><input id="s_qty" type="number" min="1" style="width:100%"></div></div>
+  <div><span class="lbl">Note</span><input id="s_note" style="width:100%" placeholder="e.g. GRN / Invoice no."></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="sGo" onclick="doStock(${id})">Apply</button>`); }
+async function doStock(id){ const qty=Math.max(1,Math.trunc(Number($('#s_qty').value)||0));
+  if(!qty) return toast('Enter qty','err');
+  try{ $('#sGo').disabled=true;
+    await api({action:'stock',itemId:id,type:$('#s_type').value,qty,note:$('#s_note').value});
+    document.querySelector('.overlay').remove(); reloadAndStay('Stock updated'); }catch(e){ $('#sGo').disabled=false; toast(e.message,'err'); } }
+
+/* ================= PRODUCTS ================= */
+function pgProducts(){
+  const prods=DB.products.map(p=>Object.assign({},p,{count:DB.items.filter(i=>Number(i.productId)===Number(p.id)).length}));
+  $('#app').innerHTML=`<div class="h1">🧩 Products / Articles <span class="mut" style="font-size:12px;font-weight:400">(BOM links items to a product — used by Orders & Analysis)</span></div>
+  <p class="sub">${prods.length} products</p>
+  <div class="toolbar"><span style="flex:1"></span>
+    <button class="btn o" onclick="bulkDlg('products')">⇪ Bulk Upload</button>
+    <button class="btn o" onclick="exportCSV('Products',['Name','Company','Description','Items'],prods.map(p=>[p.name,p.company,p.description||'',p.count]))">⇩ Export</button>
+    <button class="btn" onclick="prodDlg(0)">＋ Add Product</button></div>
+  <div class="card tblwrap"><table><thead><tr><th>#</th><th>Image</th><th>Product</th><th>Company</th><th>Description / Packing</th><th class="r">Linked Items</th><th>BOM</th><th class="r">Actions</th></tr></thead><tbody>
+  ${prods.length===0?`<tr><td colspan="8" class="mut" style="text-align:center;padding:30px">No products yet.</td></tr>`:
+    prods.map((p,ix)=>{ const bomN=DB.bom.filter(b=>Number(b.productId)===Number(p.id)).length;
+    return `<tr><td class="mut">${ix+1}</td>
+    <td>${p.imageData?`<img class="thumb" src="${esc(p.imageData)}">`:`<div class="ic" style="width:40px;height:40px;background:#f1f5f9;color:#cbd5e1">▨</div>`}</td>
+    <td class="b">${esc(p.name)}</td><td><span class="badge ${p.company==='VENGREE'?'vi':'bl'}">${p.company}</span></td>
+    <td class="mut">${esc(p.description||'—')}</td><td class="r">${p.count}</td>
+    <td><button class="btn o sm" onclick="bomDlg(${p.id})">${bomN?bomN+' item(s)':'Define'}</button></td>
+    <td class="r"><button class="btn o sm" onclick="prodDlg(${p.id})">✎</button>
+    <button class="btn o sm" style="color:#dc2626" onclick="delProd(${p.id})">🗑</button></td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+function prodDlg(id){ const p=id?product(id):{company:'MEGAVERKS'};
+  modal(id?'Edit Product':'Add Product',`
+  <input type="hidden" id="p_id" value="${id||''}">
+  <div class="frow"><div><span class="lbl">Product / Article Name *</span><input id="p_name" style="width:100%" value="${esc(p.name||'')}"></div>
+  <div><span class="lbl">Company</span><select id="p_co" style="width:100%"><option ${p.company==='MEGAVERKS'?'selected':''}>MEGAVERKS</option><option ${p.company==='VENGREE'?'selected':''}>VENGREE</option></select></div></div>
+  <div><span class="lbl">Description / Packing Instructions</span><textarea id="p_desc" style="width:100%" rows="3">${esc(p.description||'')}</textarea></div>
+  <div style="margin-top:8px"><span class="lbl">Image (Google Drive)</span><input type="file" accept="image/*" id="p_img">
+    <div id="p_imgst" class="mut" style="font-size:11px;margin-top:3px">${p.imageData?'Current image kept unless replaced':'No image yet'}</div></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="pSave" onclick="saveProd()">Save</button>`);
+  const o=document.querySelector('.overlay'); o.dataset.img=p.imageData||'';
+  o.querySelector('#p_img').onchange=async e=>{
+    const file=e.target.files[0]; if(!file) return; const st=o.querySelector('#p_imgst');
+    st.textContent='Uploading to Google Drive…';
+    try{ const r=await driveUpload(file); o.dataset.img=r.url; st.textContent='✓ Uploaded to Drive'; st.style.color='#059669'; }
+    catch(err){ st.textContent='Upload failed: '+err.message; st.style.color='#dc2626'; }
+  };
+}
+async function saveProd(){ const o=document.querySelector('.overlay');
+  const id=$('#p_id').value, name=$('#p_name').value.trim(); if(!name) return toast('Name required','err');
+  const rec={name,company:$('#p_co').value,description:$('#p_desc').value,imageData:o.dataset.img||''};
+  try{ $('#pSave').disabled=true;
+    if(id){ rec.id=id; rec.createdAt=product(id).createdAt; await api({action:'update',entity:'products',record:rec}); }
+    else await api({action:'create',entity:'products',record:rec});
+    o.remove(); reloadAndStay('Product saved'); }catch(e){ $('#pSave').disabled=false; toast(e.message,'err'); } }
+function delProd(id){ confirmDlg('Delete this product? Linked items stay but lose the product link.',
+  ()=>api({action:'remove',entity:'products',id}).then(()=>reloadAndStay('Product deleted'))); }
+function bomDlg(pid){ const p=product(pid); const lines=DB.bom.filter(b=>Number(b.productId)===Number(pid));
+  modal('BOM — '+esc(p.name),`
+  <p class="sub">Qty of each inventory item consumed per unit of this product.</p>
+  <table style="margin-bottom:10px"><thead><tr><th>Item</th><th style="width:110px">Qty / Unit *</th><th></th></tr></thead><tbody>
+  ${lines.map(b=>`<tr><td>${esc((item(b.itemId)||{}).name||'?')} <span class="mut">(${(item(b.itemId)||{}).partNumber||''})</span></td>
+    <td><input type="number" step="any" value="${b.qtyPer}" onchange="bomQty(${b.id},this.value)"></td>
+    <td class="r"><button class="btn o sm" style="color:#dc2626" onclick="bomDel(${b.id},${pid})">✕</button></td></tr>`).join('')}
+  <tr><td><select id="bom_item" style="width:100%">${DB.items.map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.partNumber||'')})</option>`).join('')}</select></td>
+    <td><input id="bom_qty" type="number" step="any" value="1"></td>
+    <td class="r"><button class="btn sm" onclick="bomAdd(${pid})">＋</button></td></tr></tbody></table>`,
+  `<button class="btn" onclick="document.querySelector('.overlay').remove()">Done</button>`); }
+async function bomAdd(pid){ const iid=$('#bom_item').value, q=Number($('#bom_qty').value)||0; if(!q) return toast('Qty required','err');
+  await api({action:'create',entity:'bom',record:{productId:pid,itemId:iid,qtyPer:q}}); reloadAndStay('BOM line added'); }
+async function bomQty(id,q){ if(!(Number(q)>0)) return;
+  const b=DB.bom.find(x=>Number(x.id)===Number(id)); b.qtyPer=q; await api({action:'update',entity:'bom',record:b}); toast('Updated','ok'); }
+async function bomDel(id,pid){ await api({action:'remove',entity:'bom',id}); reloadAndStay('BOM line removed'); }
+
+/* ================= VENDORS ================= */
+function vendorStats(v){
+  const invs=DB.invoices.filter(i=>Number(i.vendorId)===Number(v.id));
+  const pays=DB.payments.filter(p=>Number(p.vendorId)===Number(v.id));
+  const totInv=invs.reduce((s,i)=>s+Number(i.total||0),0);
+  const totPaid=pays.reduce((s,p)=>s+Number(p.amount||0),0);
+  const last=pays.map(p=>p.paymentDate).sort().pop()||null;
+  return {invoiceCount:invs.length,totalInvoiced:totInv,totalPaid:totPaid,balance:totInv-totPaid,lastPaymentDate:last}; }
+function pgVendors(){
+  const vs=DB.vendors.map(v=>Object.assign({},v,vendorStats(v)));
+  $('#app').innerHTML=`<div class="h1">🚚 Vendor Database</div><p class="sub">${vs.length} vendors · balances computed from Bills & Payments</p>
+  <div class="toolbar"><input id="vq" placeholder="Search vendors…" oninput="pgVendors.filter=this.value;renderVRows()" style="min-width:220px">
+    <span style="flex:1"></span>
+    <button class="btn o" onclick="bulkDlg('vendors')">⇪ Bulk Upload</button>
+    <button class="btn o" onclick="exportCSV('Vendors',['Name','Contact','Phone','GSTIN','Invoiced','Paid','Balance'],vs.map(v=>[v.name,v.contactPerson||'',v.phone||'',v.gstin||'',v.totalInvoiced,v.totalPaid,v.balance]))">⇩ Export</button>
+    <button class="btn" onclick="vendorDlg(0)">＋ Add Vendor</button></div>
+  <div class="card tblwrap"><table><thead><tr><th>#</th><th>Vendor</th><th>Contact</th><th>Phone / GSTIN</th><th class="r">Invoiced</th><th class="r">Paid</th><th class="r">Balance</th><th class="r">Actions</th></tr></thead>
+  <tbody id="vbody"></tbody></table></div>`;
+  renderVRows();
+}
+function renderVRows(){ const q=(pgVendors.filter||'').toLowerCase();
+  const vs=DB.vendors.map(v=>Object.assign({},v,vendorStats(v))).filter(v=>!q||(v.name+' '+(v.contactPerson||'')+' '+(v.phone||'')).toLowerCase().includes(q));
+  $('#vbody').innerHTML=vs.length===0?`<tr><td colspan="8" class="mut" style="text-align:center;padding:30px">No vendors found.</td></tr>`:
+  vs.map((v,ix)=>`<tr><td class="mut">${ix+1}</td>
+    <td><div class="b">${esc(v.name)}</div><div class="mut" style="font-size:11px">${esc(v.address||'')}</div></td>
+    <td>${esc(v.contactPerson||'—')}</td>
+    <td style="font-size:12px">${esc(v.phone||'—')}<br><span class="mut">${esc(v.gstin||'')}</span></td>
+    <td class="r">${inr(v.totalInvoiced)}<div class="mut" style="font-size:11px">${v.invoiceCount} bill(s)</div></td>
+    <td class="r">${inr(v.totalPaid)}</td>
+    <td class="r b" style="color:${v.balance>0?'#dc2626':'#059669'}">${inr(v.balance)}</td>
+    <td class="r"><button class="btn o sm" onclick="vendorDlg(${v.id})">✎</button>
+      <button class="btn o sm" title="Record payment" onclick="payVendorDlg(${v.id})">💰</button>
+      <button class="btn o sm" style="color:#dc2626" onclick="delVendor(${v.id})">🗑</button></td></tr>`).join(''); }
+function vendorDlg(id){ const v=id?vendor(id):{creditDays:30};
+  modal(id?'Edit Vendor':'Add Vendor',`<input type="hidden" id="v_id" value="${id||''}">
+  <div class="frow"><div><span class="lbl">Vendor Name *</span><input id="v_name" style="width:100%" value="${esc(v.name||'')}"></div>
+  <div><span class="lbl">Contact Person</span><input id="v_cp" style="width:100%" value="${esc(v.contactPerson||'')}"></div></div>
+  <div class="frow"><div><span class="lbl">Phone</span><input id="v_ph" style="width:100%" value="${esc(v.phone||'')}"></div>
+  <div><span class="lbl">Email</span><input id="v_em" style="width:100%" value="${esc(v.email||'')}"></div></div>
+  <div class="frow"><div><span class="lbl">GSTIN</span><input id="v_gst" style="width:100%" value="${esc(v.gstin||'')}"></div>
+  <div><span class="lbl">Google Location</span><input id="v_loc" style="width:100%" value="${esc(v.googleLocation||'')}" placeholder="Maps link"></div></div>
+  <div class="frow3"><div><span class="lbl">Purchase Manager</span><input id="v_pm" style="width:100%" value="${esc(v.purchaseManager||'')}"></div>
+  <div><span class="lbl">Credit Limit (₹)</span><input id="v_cl" type="number" style="width:100%" value="${v.creditLimit||''}"></div>
+  <div><span class="lbl">Credit Days</span><input id="v_cd" type="number" style="width:100%" value="${v.creditDays||30}"></div></div>
+  <div><span class="lbl">Address</span><textarea id="v_ad" style="width:100%" rows="2">${esc(v.address||'')}</textarea></div>
+  <div style="margin-top:8px"><span class="lbl">Notes</span><textarea id="v_no" style="width:100%" rows="2">${esc(v.notes||'')}</textarea></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="vSave" onclick="saveVendor()">Save</button>`); }
+async function saveVendor(){ const id=$('#v_id').value, name=$('#v_name').value.trim(); if(!name) return toast('Name required','err');
+  const rec={name,contactPerson:$('#v_cp').value,phone:$('#v_ph').value,email:$('#v_em').value,gstin:$('#v_gst').value.toUpperCase(),
+    googleLocation:$('#v_loc').value,purchaseManager:$('#v_pm').value,creditLimit:$('#v_cl').value||'',creditDays:$('#v_cd').value||30,
+    address:$('#v_ad').value,notes:$('#v_no').value};
+  try{ $('#vSave').disabled=true;
+    if(id){ rec.id=id; Object.assign(rec,{createdAt:vendor(id).createdAt}); await api({action:'update',entity:'vendors',record:rec}); }
+    else await api({action:'create',entity:'vendors',record:rec});
+    document.querySelector('.overlay').remove(); reloadAndStay('Vendor saved'); }catch(e){ $('#vSave').disabled=false; toast(e.message,'err'); } }
+function delVendor(id){ confirmDlg('Delete this vendor? Bills already recorded keep their history.',()=>api({action:'remove',entity:'vendors',id}).then(()=>reloadAndStay('Vendor deleted'))); }
+function payVendorDlg(vid){ const invs=DB.invoices.filter(i=>Number(i.vendorId)===Number(vid));
+  modal('Record Payment — '+esc((vendor(vid)||{}).name),`
+  <div class="frow"><div><span class="lbl">Amount (₹) *</span><input id="py_amt" type="number" step="any" style="width:100%"></div>
+  <div><span class="lbl">Date</span><input id="py_dt" type="date" style="width:100%" value="${today()}"></div></div>
+  <div class="frow"><div><span class="lbl">Method</span><select id="py_mth" style="width:100%"><option>UPI</option><option>NEFT/RTGS</option><option>Cheque</option><option>Cash</option><option>Credit Card</option></select></div>
+  <div><span class="lbl">Reference</span><input id="py_ref" style="width:100%" placeholder="UTR / Cheque no."></div></div>
+  <div><span class="lbl">Against Bill (optional)</span><select id="py_inv" style="width:100%"><option value="">— General / advance —</option>
+    ${invs.map(i=>`<option value="${i.id}">${esc(i.invoiceNumber)} · ${inr(i.total)}</option>`).join('')}</select></div>
+  <div style="margin-top:8px"><span class="lbl">Notes</span><input id="py_no" style="width:100%"></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="pyGo" onclick="doPay(${vid})">Record</button>`); }
+async function doPay(vid){ const amt=Number($('#py_amt').value)||0; if(amt<=0) return toast('Enter amount','err');
+  try{ $('#pyGo').disabled=true;
+    await api({action:'payment',vendorId:vid,invoiceId:$('#py_inv').value,amount:amt,paymentDate:$('#py_dt').value,
+      method:$('#py_mth').value,reference:$('#py_ref').value,notes:$('#py_no').value});
+    document.querySelector('.overlay').remove(); reloadAndStay('Payment recorded'); }catch(e){ $('#pyGo').disabled=false; toast(e.message,'err'); } }
+
+/* ================= BILLS ================= */
+function invoicePaid(inv){ return Number(inv.advancePaid||0) + DB.payments.filter(p=>Number(p.invoiceId)===Number(inv.id)).reduce((s,p)=>s+Number(p.amount||0),0); }
+function invoiceStatus(inv){ const paid=invoicePaid(inv), tot=Number(inv.total||0);
+  return paid>=tot&&tot>0?'PAID':paid>0?'PARTIAL':'UNPAID'; }
+let billDraft=null;
+function pgBills(){
+  const invs=DB.invoices.map(i=>Object.assign({},i,{vendorName:(vendor(i.vendorId)||{}).name||'—',paid:invoicePaid(i),
+    status:invoiceStatus(i)})).sort((a,b)=>Number(b.id)-Number(a.id));
+  const totDue=invs.reduce((s,i)=>s+Math.max(0,Number(i.total)-i.paid),0);
+  $('#app').innerHTML=`<div class="h1">🧾 Vendor Bills & Payments</div>
+  <p class="sub">${invs.length} bills · Total outstanding: <b style="color:#dc2626">${inr(totDue)}</b></p>
+  <div class="toolbar"><span style="flex:1"></span>
+    <button class="btn o" onclick="exportCSV('Bills',['Invoice No','Date','Vendor','Subtotal','Tax','Total','Paid','Balance','Status'],invs.map(i=>[i.invoiceNumber,i.invoiceDate,i.vendorName,i.subtotal||'',i.taxAmount||'',i.total,i.paid,Number(i.total)-i.paid,i.status]))">⇩ Export</button>
+    <button class="btn" onclick="billDlg()">＋ Add Bill</button></div>
+  <div class="card tblwrap"><table><thead><tr><th>#</th><th>Invoice</th><th>Date / Due</th><th>Vendor</th><th class="r">Subtotal</th><th class="r">Tax</th><th class="r">Total</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th><th class="r">Actions</th></tr></thead><tbody>
+  ${invs.length===0?`<tr><td colspan="11" class="mut" style="text-align:center;padding:30px">No bills yet. Upload vendor invoices via "Add Bill" (with optional OCR).</td></tr>`:
+   invs.map((i,ix)=>`<tr><td class="mut">${ix+1}</td>
+    <td class="b">${esc(i.invoiceNumber)}${i.attachmentData?' 📎':''}</td>
+    <td style="font-size:12px">${esc(i.invoiceDate)}${i.dueDate?`<br><span class="mut">due ${esc(i.dueDate)}</span>`:''}</td>
+    <td>${esc(i.vendorName)}</td>
+    <td class="r">${i.subtotal?inr(i.subtotal):'—'}</td><td class="r">${i.taxAmount?inr(i.taxAmount):'—'}</td>
+    <td class="r b">${inr(i.total)}</td><td class="r" style="color:#059669">${inr(i.paid)}</td>
+    <td class="r b" style="color:${Number(i.total)-i.paid>0?'#dc2626':'#059669'}">${inr(Number(i.total)-i.paid)}</td>
+    <td><span class="badge ${i.status==='PAID'?'g':i.status==='PARTIAL'?'a':'rd'}">${i.status}</span></td>
+    <td class="r"><button class="btn o sm" onclick="viewBill(${i.id})">👁</button>
+      <button class="btn o sm" title="Record payment" onclick="payInvoiceDlg(${i.id})">💰</button>
+      <button class="btn o sm" style="color:#dc2626" onclick="delBill(${i.id})">🗑</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function viewBill(id){ const i=DB.invoices.find(x=>Number(x.id)===Number(id)); if(!i) return;
+  let lines=[]; try{ lines=JSON.parse(i.lineItems||'[]'); }catch(e){}
+  modal('Bill '+esc(i.invoiceNumber),`
+  ${i.attachmentData?`<p>📎 <a href="${esc(i.attachmentData)}" target="_blank" rel="noopener">Open attachment in Google Drive</a>
+    <span class="mut">(${esc(i.attachmentName||'file')})</span></p>`:''}
+  <table style="font-size:13px;margin:8px 0">${[['Vendor',(vendor(i.vendorId)||{}).name],['Date',i.invoiceDate],['Payment Mode',i.paymentMode],['Due Date',i.dueDate||'—']]
+    .map(r=>`<tr><td class="mut" style="width:130px;padding:3px 0">${r[0]}</td><td>${esc(r[1]||'—')}</td></tr>`).join('')}</table>
+  ${lines.length?`<table><thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
+    <tbody>${lines.map(l=>`<tr><td>${esc(l.description)}</td><td class="r">${l.qty}</td><td class="r">${inr(l.rate)}</td><td class="r">${inr(l.amount)}</td></tr>`).join('')}</tbody></table>`:''}
+  ${i.notes?`<div class="note">${esc(i.notes)}</div>`:''}`,
+  `<button class="btn" onclick="document.querySelector('.overlay').remove()">Close</button>`); }
+function payInvoiceDlg(iid){ const i=DB.invoices.find(x=>Number(x.id)===Number(iid));
+  payVendorDlg(i.vendorId);
+  setTimeout(()=>{ const sel=$('#py_inv'); if(sel) sel.value=String(iid); },0); }
+function delBill(id){ confirmDlg('Delete this bill? Its payments remain in the ledger.',()=>api({action:'remove',entity:'invoices',id}).then(()=>reloadAndStay('Bill deleted'))); }
+function billDlg(){ billDraft={lines:[{description:'',qty:1,rate:0}],attachmentData:'',attachmentName:''};
+  renderBillDlg(''); }
+function billCalc(d){
+  const sub=d.lines.reduce((s,l)=>s+Number(l.qty||0)*Number(l.rate||0),0);
+  const taxType=d.taxType||'NONE', gstRate=Number(d.gstRate||0);
+  const taxAmt=taxType==='NONE'?0:(taxType==='GST_INCL'?sub*gstRate/(100+gstRate):sub*gstRate/100);
+  const total=taxType==='GST_INCL'?sub:sub+taxAmt;
+  return {sub:+sub.toFixed(2), taxAmt:+taxAmt.toFixed(2), total:+total.toFixed(2), taxType, gstRate};
+}
+/* recalc and repaint ONLY the amounts/total — typing never rebuilds the dialog */
+function updateBillTotals(){
+  const d=billDraft, c=billCalc(d);
+  d.taxType=c.taxType; d.gstRate=c.gstRate;
+  d.subtotal=c.sub; d.taxAmount=c.taxAmt; d.total=c.total;
+  d.lines.forEach((l,ix)=>{ const n=document.getElementById('b_amt_'+ix); if(n) n.textContent=inr(Number(l.qty||0)*Number(l.rate||0)); });
+  const t=$('#b_total'); if(t) t.textContent=inr(c.total);
+}
+function renderBillDlg(err){
+  document.querySelectorAll('.overlay').forEach(o=>o.remove()); // re-render = replace, never stack
+  const d=billDraft;
+  const c=billCalc(d);
+  d.subtotal=c.sub; d.taxAmount=c.taxAmt; d.total=c.total;
+  modal('Add Vendor Bill', `${err?`<div class="note">${esc(err)}</div>`:''}
+  <div class="frow3"><div><span class="lbl">Vendor *</span><select id="b_ven" style="width:100%">${vendorOptions(d.vendorId)}</select></div>
+  <div><span class="lbl">Invoice No *</span><input id="b_no" style="width:100%" value="${esc(d.invoiceNumber||'')}"></div>
+  <div><span class="lbl">Invoice Date</span><input id="b_dt" type="date" style="width:100%" value="${d.invoiceDate||today()}"></div></div>
+  <div class="frow3"><div><span class="lbl">Payment Mode</span><select id="b_pm" style="width:100%">${['Credit','UPI','NEFT/RTGS','Cheque','Cash'].map(m=>`<option ${(d.paymentMode||'Credit')===m?'selected':''}>${m}</option>`).join('')}</select></div>
+  <div><span class="lbl">Advance Paid (₹)</span><input id="b_adv" type="number" step="any" style="width:100%" value="${d.advancePaid||0}"></div>
+  <div><span class="lbl">Credit Days</span><input id="b_cd" type="number" style="width:100%" value="${d.creditDays||30}"></div></div>
+  <table style="margin-bottom:8px"><thead><tr><th>Description</th><th style="width:80px">Qty</th><th style="width:110px">Rate ₹</th><th class="r" style="width:100px">Amount</th><th></th></tr></thead><tbody>
+  ${d.lines.map((l,ix)=>`<tr><td><input style="width:100%" value="${esc(l.description)}" oninput="billDraft.lines[${ix}].description=this.value"></td>
+    <td><input type="number" style="width:100%" value="${l.qty}" oninput="billDraft.lines[${ix}].qty=this.value;updateBillTotals()"></td>
+    <td><input type="number" step="any" style="width:100%" value="${l.rate}" oninput="billDraft.lines[${ix}].rate=this.value;updateBillTotals()"></td>
+    <td class="r" id="b_amt_${ix}">${inr(Number(l.qty||0)*Number(l.rate||0))}</td>
+    <td class="r"><button class="btn o sm" style="color:#dc2626" onclick="billDraft.lines.splice(${ix},1);renderBillDlg()">✕</button></td></tr>`).join('')}
+  </tbody></table>
+  <button class="btn o sm" onclick="billDraft.lines.push({description:'',qty:1,rate:0});renderBillDlg()">＋ Add line</button>
+  <div class="frow3" style="margin-top:10px"><div><span class="lbl">Tax</span><select style="width:100%" onchange="billDraft.taxType=this.value;renderBillDlg()">
+    <option value="NONE" ${c.taxType==='NONE'?'selected':''}>No tax</option><option value="GST_ADD" ${c.taxType==='GST_ADD'?'selected':''}>GST added</option><option value="GST_INCL" ${c.taxType==='GST_INCL'?'selected':''}>GST inclusive</option></select></div>
+  <div><span class="lbl">GST %</span><input type="number" step="any" style="width:100%" value="${c.gstRate}" oninput="billDraft.gstRate=this.value;updateBillTotals()"></div>
+  <div><span class="lbl">Total (auto)</span><div class="b" id="b_total" style="font-size:18px;padding-top:6px">${inr(c.total)}</div></div></div>
+  <div class="frow"><div><span class="lbl">Attachment (photo of invoice → Google Drive)</span><input type="file" id="b_att" accept="image/*">
+    <div id="b_attst" class="mut" style="font-size:11px;margin-top:3px">${d.attachmentData?'✓ Attachment uploaded — kept unless replaced':'Only the Drive link is stored in the sheet'}</div></div>
+  <div><span class="lbl">OCR (Unlimited-OCR)</span><input type="file" id="b_ocr" accept="image/*">
+    <button class="btn o sm" style="margin-top:4px" onclick="runOcr()">✨ Extract text to Notes</button></div></div>
+  <div style="margin-top:6px"><span class="lbl">Notes</span><textarea id="b_notes" style="width:100%" rows="3">${esc(d.notes||'')}</textarea></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="bSave" onclick="saveBill()">Save Bill</button>`);
+  $('#b_att').onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
+    const st=$('#b_attst'); st.textContent='Uploading to Google Drive…';
+    try{ const r=await driveUpload(f); billDraft.attachmentData=r.url; billDraft.attachmentName=f.name;
+      st.textContent='✓ Uploaded: '+r.viewUrl; st.style.color='#059669'; }
+    catch(err){ st.textContent='Upload failed: '+err.message; st.style.color='#dc2626'; toast(err.message,'err'); } };
+  $('#b_ocr').onchange=e=>{ billDraft._ocrFile=e.target.files[0]; };
+  /* bind every field to the draft — no re-render on typing, so nothing is ever lost */
+  $('#b_ven').onchange=e=>billDraft.vendorId=e.target.value;
+  $('#b_no').oninput=e=>billDraft.invoiceNumber=e.target.value;
+  $('#b_dt').oninput=e=>billDraft.invoiceDate=e.target.value;
+  $('#b_pm').onchange=e=>billDraft.paymentMode=e.target.value;
+  $('#b_adv').oninput=e=>billDraft.advancePaid=e.target.value;
+  $('#b_cd').oninput=e=>billDraft.creditDays=e.target.value;
+  $('#b_notes').oninput=e=>billDraft.notes=e.target.value;
+}
+async function runOcr(){ const tok=localStorage.getItem('mv_hf'); if(!tok) return toast('Set your Hugging Face token in Admin → Settings','err');
+  const f=billDraft&&billDraft._ocrFile; if(!f) return toast('Choose an image in the OCR field first','err');
+  try{
+    toast('Running OCR (baidu/Unlimited-OCR)…');
+    const dataUrl=await fileToDataUrl(f,1600,0.85);
+    let txt='';
+    /* Current HF API: OpenAI-compatible chat completions on the router.
+       (The old hf-inference/models endpoint returns 404/410 for vision-language models.) */
+    const r=await fetch('https://router.huggingface.co/v1/chat/completions',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'baidu/Unlimited-OCR',
+        messages:[{role:'user',content:[
+          {type:'text',text:'Extract ALL text from this invoice image exactly as printed: vendor name, invoice number, date, GSTIN, every line item (description, qty, rate, amount), tax amounts and grand total. Output plain text only, no commentary.'},
+          {type:'image_url',image_url:{url:dataUrl}}]}],
+        max_tokens:2500, stream:false })});
+    if(r.ok){
+      const j=await r.json().catch(()=>null);
+      if(j&&j.choices&&j.choices[0]&&j.choices[0].message) txt=j.choices[0].message.content||'';
+      else if(typeof j==='string') txt=j;
+      else if(j&&(j.generated_text||j.text)) txt=j.generated_text||j.text;
+    }
+    if(!txt){ /* fallback: legacy task endpoint — some deployments still answer here */
+      const r2=await fetch('https://router.huggingface.co/hf-inference/models/baidu/Unlimited-OCR',{
+        method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/octet-stream'},body:f});
+      const raw2=await r2.text();
+      if(!r2.ok){
+        if(/deprecated|no longer supported/i.test(raw2))
+          throw new Error('OCR unavailable: HF no longer serves this model on the free inference API (HTTP '+r2.status+'). You can still attach the photo and type the bill manually.');
+        throw new Error('OCR failed: HTTP '+r2.status+' — '+(raw2.slice(0,160)||'check the token has "Make calls to Inference Providers" permission'));
+      }
+      let j2=null; try{ j2=JSON.parse(raw2); }catch(e){ txt=raw2; }
+      if(j2){ if(typeof j2==='string') txt=j2;
+        else if(Array.isArray(j2)&&j2[0]) txt=j2[0].generated_text||j2[0].text||'';
+        else txt=j2.generated_text||j2.text||''; }
+    }
+    txt=String(txt||'').trim();
+    if(!txt) throw new Error('OCR returned no text — try a clearer, straight-on photo of the bill.');
+    const nb=$('#b_notes'); const cur=nb.value.trim();
+    nb.value=(cur?cur+'\n\n':'')+txt.slice(0,4000);
+    billDraft.notes=nb.value;
+    toast('Text extracted to Notes — review and map line items','ok');
+  }catch(e){ toast(e.message,'err'); } }
+async function saveBill(){ const d=billDraft; d.vendorId=$('#b_ven').value; d.invoiceNumber=$('#b_no').value.trim();
+  d.invoiceDate=$('#b_dt').value; d.paymentMode=$('#b_pm').value; d.notes=$('#b_notes').value;
+  d.creditDays=$('#b_cd').value||30; d.advancePaid=$('#b_adv').value||0;
+  if(!d.vendorId) return renderBillDlg('Select a vendor');
+  if(!d.invoiceNumber) return renderBillDlg('Invoice number required');
+  d.lines=d.lines.filter(l=>l.description.trim());
+  if(!d.lines.length) return renderBillDlg('Add at least one line item');
+  const due=new Date(d.invoiceDate||today()); due.setDate(due.getDate()+Number(d.creditDays||30));
+  try{ $('#bSave').disabled=true;
+    await api({action:'create',entity:'invoices',record:{vendorId:d.vendorId,invoiceNumber:d.invoiceNumber,invoiceDate:d.invoiceDate,
+      subtotal:d.subtotal,taxType:d.taxType,gstRate:d.gstRate||0,taxAmount:d.taxAmount,total:d.total,paymentMode:d.paymentMode,
+      advancePaid:d.advancePaid||0,creditDays:d.creditDays,dueDate:due.toISOString().slice(0,10),lineItems:JSON.stringify(d.lines),
+      attachmentData:d.attachmentData||'',attachmentName:d.attachmentName||'',notes:d.notes||''}});
+    document.querySelector('.overlay').remove(); reloadAndStay('Bill saved'); }catch(e){ $('#bSave').disabled=false; toast(e.message,'err'); } }
+
+/* ================= CUSTOMERS ================= */
+function pgCustomers(){
+  const cs=DB.customers.map(c=>{ const pos=DB.pos.filter(p=>Number(p.customerId)===Number(c.id));
+    return Object.assign({},c,{poCount:pos.length,openPoCount:pos.filter(p=>p.status==='OPEN').length}); });
+  $('#app').innerHTML=`<div class="h1">👤 Customers</div><p class="sub">${cs.length} customers</p>
+  <div class="toolbar"><span style="flex:1"></span>
+  <button class="btn o" onclick="exportCSV('Customers',['Name','Contact','Phone','GSTIN','POs','Open POs'],cs.map(c=>[c.name,c.contactPerson||'',c.phone||'',c.gstin||'',c.poCount,c.openPoCount]))">⇩ Export</button>
+  <button class="btn" onclick="custDlg(0)">＋ Add Customer</button></div>
+  <div class="card tblwrap"><table><thead><tr><th>#</th><th>Customer</th><th>Contact</th><th>Phone / GSTIN</th><th class="r">POs</th><th class="r">Open POs</th><th class="r">Actions</th></tr></thead><tbody>
+  ${cs.length===0?`<tr><td colspan="7" class="mut" style="text-align:center;padding:30px">No customers yet — they are auto-created when you upload Orders.</td></tr>`:
+   cs.map((c,ix)=>`<tr><td class="mut">${ix+1}</td><td class="b">${esc(c.name)}</td><td>${esc(c.contactPerson||'—')}</td>
+    <td style="font-size:12px">${esc(c.phone||'—')}<br><span class="mut">${esc(c.gstin||'')}</span></td>
+    <td class="r">${c.poCount}</td><td class="r">${c.openPoCount?`<span class="badge bl">${c.openPoCount}</span>`:'0'}</td>
+    <td class="r"><button class="btn o sm" onclick="custDlg(${c.id})">✎</button>
+    <button class="btn o sm" style="color:#dc2626" onclick="delCust(${c.id})">🗑</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function custDlg(id){ const c=id?customer(id):{};
+  modal(id?'Edit Customer':'Add Customer',`<input type="hidden" id="c_id" value="${id||''}">
+  <div class="frow"><div><span class="lbl">Customer Name *</span><input id="c_name" style="width:100%" value="${esc(c.name||'')}"></div>
+  <div><span class="lbl">Contact Person</span><input id="c_cp" style="width:100%" value="${esc(c.contactPerson||'')}"></div></div>
+  <div class="frow3"><div><span class="lbl">Phone</span><input id="c_ph" style="width:100%" value="${esc(c.phone||'')}"></div>
+  <div><span class="lbl">Email</span><input id="c_em" style="width:100%" value="${esc(c.email||'')}"></div>
+  <div><span class="lbl">GSTIN</span><input id="c_gst" style="width:100%" value="${esc(c.gstin||'')}"></div></div>
+  <div><span class="lbl">Address</span><textarea id="c_ad" style="width:100%" rows="2">${esc(c.address||'')}</textarea></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="cSave" onclick="saveCust()">Save</button>`); }
+async function saveCust(){ const id=$('#c_id').value, name=$('#c_name').value.trim(); if(!name) return toast('Name required','err');
+  const rec={name,contactPerson:$('#c_cp').value,phone:$('#c_ph').value,email:$('#c_em').value,gstin:$('#c_gst').value.toUpperCase(),
+    address:$('#c_ad').value,googleLocation:id?customer(id).googleLocation:'',notes:id?customer(id).notes:''};
+  try{ $('#cSave').disabled=true;
+    if(id){ rec.id=id; Object.assign(rec,{createdAt:customer(id).createdAt}); await api({action:'update',entity:'customers',record:rec}); }
+    else await api({action:'create',entity:'customers',record:rec});
+    document.querySelector('.overlay').remove(); reloadAndStay('Customer saved'); }catch(e){ $('#cSave').disabled=false; toast(e.message,'err'); } }
+function delCust(id){ confirmDlg('Delete this customer? Their POs remain.',()=>api({action:'remove',entity:'customers',id}).then(()=>reloadAndStay('Customer deleted'))); }
+
+/* ================= PURCHASE ORDERS ================= */
+let poDraft=null;
+function pgOrders(){
+  const pos=DB.pos.map(p=>{ const lines=DB.poLines.filter(l=>Number(l.poId)===Number(p.id));
+    return Object.assign({},p,{customerName:(customer(p.customerId)||{}).name||'—',lineCount:lines.length,
+      totalQty:lines.reduce((s,l)=>s+Number(l.qty||0),0)}); }).sort((a,b)=>Number(b.id)-Number(a.id));
+  const stCls={OPEN:'bl',DISPATCHED:'g',CANCELLED:'rd'};
+  $('#app').innerHTML=`<div class="h1">📋 Customer Purchase Orders</div><p class="sub">${pos.length} orders</p>
+  <div class="toolbar"><span style="flex:1"></span>
+    <button class="btn o" onclick="bulkDlg('pos')">⇪ Bulk Upload</button>
+    <button class="btn o" onclick="exportCSV('PurchaseOrders',['PO No','Date','Customer','Lines','Qty','Status'],pos.map(p=>[p.poNumber,p.poDate,p.customerName,p.lineCount,p.totalQty,p.status]))">⇩ Export</button>
+    <button class="btn" onclick="poDlg()">＋ New PO</button></div>
+  <div class="card tblwrap"><table><thead><tr><th>PO Number</th><th>Date</th><th>Customer</th><th>Lines</th><th class="r">Total Qty</th><th>Status</th><th class="r">Actions</th></tr></thead><tbody>
+  ${pos.length===0?`<tr><td colspan="7" class="mut" style="text-align:center;padding:30px">No purchase orders.</td></tr>`:
+   pos.map(p=>`<tr><td class="b">${esc(p.poNumber)}</td><td>${esc(p.poDate)}</td><td>${esc(p.customerName)}</td>
+    <td>${p.lineCount}</td><td class="r b">${p.totalQty.toLocaleString('en-IN')}</td>
+    <td><span class="badge ${stCls[p.status]||'gr'}">${p.status}</span>${p.dispatchedBy?`<div class="mut" style="font-size:11px">by ${esc(p.dispatchedBy)}</div>`:''}</td>
+    <td class="r"><button class="btn o sm" onclick="poView(${p.id})">👁</button>
+      ${p.status==='OPEN'?`<button class="btn sm" onclick="poDispatch(${p.id})">🚀 Dispatch</button>
+      <button class="btn o sm" onclick="poCancel(${p.id})">✕ Cancel</button>`:''}
+      <button class="btn o sm" style="color:#dc2626" onclick="delPo(${p.id})">🗑</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function poView(id){ const p=DB.pos.find(x=>Number(x.id)===Number(id)); if(!p) return;
+  const lines=DB.poLines.filter(l=>Number(l.poId)===Number(id));
+  modal('PO '+esc(p.poNumber)+' — '+(customer(p.customerId)||{}).name,`
+  ${p.notes?`<div class="note">${esc(p.notes)}</div>`:''}
+  <table><thead><tr><th>Customer Part</th><th>Our Product</th><th class="r">Qty</th></tr></thead><tbody>
+  ${lines.map(l=>`<tr><td>${esc(l.customerPartName||'—')} <span class="mut">${esc(l.customerPartNumber||'')}</span></td>
+    <td>${esc((product(l.productId)||{}).name||'?')}</td><td class="r b">${l.qty}</td></tr>`).join('')||'<tr><td colspan="3" class="mut">No lines</td></tr>'}
+  </tbody></table>
+  <h3 style="margin:12px 0 6px;font-size:14px">Material Requirements (BOM)</h3>
+  ${poRequirements(p)}`,
+  `<button class="btn" onclick="document.querySelector('.overlay').remove()">Close</button>`); }
+function poRequirements(p){ const lines=DB.poLines.filter(l=>Number(l.poId)===Number(p.id));
+  const req={}; let noBom=true;
+  lines.forEach(l=>{ DB.bom.filter(b=>Number(b.productId)===Number(l.productId)).forEach(b=>{ noBom=false;
+    req[b.itemId]=(req[b.itemId]||0)+Number(b.qtyPer)*Number(l.qty); }); });
+  if(noBom) return `<p class="mut">No BOM defined for these products — define it in Products to check material position.</p>`;
+  const ids=Object.keys(req); const ok=ids.every(iid=>(Number((item(iid)||{}).stockInHand)||0)>=req[iid]);
+  return `<p>${ok?'<span class="badge g">SUFFICIENT STOCK</span>':'<span class="badge rd">INSUFFICIENT</span>'}</p>
+  <table style="margin-top:8px"><thead><tr><th>Item</th><th class="r">Required</th><th class="r">In Hand</th><th class="r">Gap</th></tr></thead><tbody>
+  ${ids.map(iid=>{ const it=item(iid)||{}; const gap=(Number(it.stockInHand)||0)-req[iid];
+    return `<tr><td>${esc(it.name||'?')}</td><td class="r">${req[iid]}</td><td class="r">${it.stockInHand||0}</td>
+    <td class="r" style="color:${gap<0?'#dc2626':'#059669'};font-weight:700">${gap<0?gap:'+'+gap}</td></tr>`; }).join('')}</tbody></table>`; }
+function poDispatch(id){ confirmDlg('<b>Dispatch this PO?</b> Stock will be deducted from inventory per the BOM (Stock OUT movements are logged).',
+  async()=>{ try{ await api({action:'dispatch',poId:id}); reloadAndStay('PO dispatched'); }catch(e){ toast(e.message,'err'); } }); }
+function poCancel(id){ confirmDlg('Cancel this PO? No stock movement.',async()=>{ const p=DB.pos.find(x=>Number(x.id)===Number(id));
+  p.status='CANCELLED'; await api({action:'update',entity:'pos',record:p}); reloadAndStay('PO cancelled'); }); }
+function delPo(id){ confirmDlg('Delete this PO and its lines?',async()=>{
+  const lines=DB.poLines.filter(l=>Number(l.poId)===Number(id));
+  for(const l of lines) await api({action:'remove',entity:'poLines',id:l.id});
+  await api({action:'remove',entity:'pos',id}); reloadAndStay('PO deleted'); }); }
+function poDlg(){ poDraft={lines:[{customerPartName:'',customerPartNumber:'',productId:'',qty:1}]};
+  renderPoDlg(''); }
+function renderPoDlg(err){ const d=poDraft;
+  modal('New Purchase Order',`${err?`<div class="note">${esc(err)}</div>`:''}
+  <div class="frow3"><div><span class="lbl">PO Number *</span><input id="po_no" style="width:100%" value="${esc(d.poNumber||'')}"></div>
+  <div><span class="lbl">PO Date</span><input id="po_dt" type="date" style="width:100%" value="${d.poDate||today()}"></div>
+  <div><span class="lbl">Customer *</span><select id="po_cust" style="width:100%"><option value="">— select —</option>${customerOptions(d.customerId)}</select></div></div>
+  <table style="margin-bottom:8px"><thead><tr><th>Customer Part</th><th>Customer Part No</th><th style="width:220px">Our Product *</th><th style="width:80px">Qty *</th><th></th></tr></thead><tbody>
+  ${d.lines.map((l,ix)=>`<tr><td><input style="width:100%" value="${esc(l.customerPartName)}" oninput="poDraft.lines[${ix}].customerPartName=this.value"></td>
+   <td><input style="width:100%" value="${esc(l.customerPartNumber)}" oninput="poDraft.lines[${ix}].customerPartNumber=this.value"></td>
+   <td><select style="width:100%" onchange="poDraft.lines[${ix}].productId=this.value">${productOptions(l.productId)}</select></td>
+   <td><input type="number" style="width:100%" value="${l.qty}" oninput="poDraft.lines[${ix}].qty=this.value"></td>
+   <td class="r"><button class="btn o sm" style="color:#dc2626" onclick="poDraft.lines.splice(${ix},1);renderPoDlg()">✕</button></td></tr>`).join('')}
+  </tbody></table>
+  <button class="btn o sm" onclick="poDraft.lines.push({customerPartName:'',customerPartNumber:'',productId:'',qty:1});renderPoDlg()">＋ Add line</button>
+  <div style="margin-top:10px"><span class="lbl">Notes</span><textarea id="po_notes" style="width:100%" rows="2">${esc(d.notes||'')}</textarea></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="poSave" onclick="savePo()">Create PO</button>`);
+  $('#po_no').oninput=e=>poDraft.poNumber=e.target.value; $('#po_dt').oninput=e=>poDraft.poDate=e.target.value;
+  $('#po_notes').oninput=e=>poDraft.notes=e.target.value; $('#po_cust').onchange=e=>poDraft.customerId=e.target.value;
+}
+async function savePo(){ const d=poDraft; d.poNumber=$('#po_no').value.trim(); d.customerId=$('#po_cust').value;
+  if(!d.poNumber) return renderPoDlg('PO number required'); if(!d.customerId) return renderPoDlg('Select a customer');
+  d.lines=d.lines.filter(l=>l.productId&&Number(l.qty)>0); if(!d.lines.length) return renderPoDlg('Add at least one line with product & qty');
+  if(DB.pos.some(p=>String(p.poNumber).trim().toLowerCase()===d.poNumber.toLowerCase())) return renderPoDlg('PO number already exists');
+  try{ $('#poSave').disabled=true;
+    const po=await api({action:'create',entity:'pos',record:{customerId:d.customerId,poNumber:d.poNumber,poDate:d.poDate||today(),
+      status:'OPEN',notes:$('#po_notes').value,dispatchedBy:'',dispatchedAt:''}});
+    for(const l of d.lines) await api({action:'create',entity:'poLines',record:{poId:po.id,customerPartName:l.customerPartName,
+      customerPartNumber:l.customerPartNumber,productId:l.productId,qty:l.qty}});
+    document.querySelector('.overlay').remove(); reloadAndStay('PO created'); }catch(e){ $('#poSave').disabled=false; toast(e.message,'err'); } }
+
+/* ================= ANALYSIS ================= */
+let deadDays=90;
+function computeAnalysis(){
+  const openPos=DB.pos.filter(p=>p.status==='OPEN');
+  const bomByProd={}; DB.bom.forEach(b=>{(bomByProd[b.productId]=bomByProd[b.productId]||[]).push(b);});
+  const required={}; const poRows=openPos.map(po=>{
+    let totalQty=0; const poReq={};
+    DB.poLines.filter(l=>Number(l.poId)===Number(po.id)).forEach(l=>{ totalQty+=Number(l.qty||0);
+      (bomByProd[l.productId]||[]).forEach(b=>{ const need=Number(b.qtyPer)*Number(l.qty);
+        poReq[b.itemId]=(poReq[b.itemId]||0)+need; required[b.itemId]=(required[b.itemId]||0)+need; }); });
+    let shortageUnits=0;
+    for(const iid in poReq){ const onHand=Number((item(iid)||{}).stockInHand)||0;
+      if(poReq[iid]>onHand) shortageUnits+=poReq[iid]-onHand; }
+    return {id:po.id,poNumber:po.poNumber,poDate:po.poDate,customerName:(customer(po.customerId)||{}).name||'—',
+      totalQty,sufficient:shortageUnits===0,shortageUnits}; });
+  const price=it=>Number(it.price)||0;
+  const shortfalls=[],excess=[];
+  DB.items.forEach(i=>{ const req=required[i.id]||0; const onHand=Number(i.stockInHand)||0;
+    if(req>onHand){ const s=req-onHand; shortfalls.push({itemId:i.id,itemName:i.name,partNumber:i.partNumber,materialType:i.materialType,
+      source:i.source,vendorName:i.vendorName,required:req,onHand,shortage:s,shortageValue:+(s*price(i)).toFixed(2)}); }
+    else if(onHand>req){ const ex=onHand-req; excess.push({itemId:i.id,itemName:i.name,partNumber:i.partNumber,materialType:i.materialType,
+      source:i.source,onHand,requiredByOpenPos:req,excess:ex,excessValue:+(ex*price(i)).toFixed(2)}); } });
+  shortfalls.sort((a,b)=>b.shortageValue-a.shortageValue); excess.sort((a,b)=>b.excessValue-a.excessValue);
+  const lastMove={}; DB.movements.forEach(m=>{ const d=new Date(m.createdAt);
+    if(!lastMove[m.itemId]||d>lastMove[m.itemId]) lastMove[m.itemId]=d; });
+  const now=Date.now(); const deadStock=[];
+  DB.items.forEach(i=>{ const onHand=Number(i.stockInHand)||0; if(onHand<=0) return;
+    const last=lastMove[i.id]||new Date(i.createdAt); const daysIdle=Math.floor((now-last.getTime())/86400000);
+    if(daysIdle>=deadDays) deadStock.push({itemId:i.id,itemName:i.name,partNumber:i.partNumber,materialType:i.materialType,
+      source:i.source,onHand,stockValue:+(onHand*price(i)).toFixed(2),lastMovement:last.toISOString().slice(0,10),daysIdle}); });
+  deadStock.sort((a,b)=>b.daysIdle-a.daysIdle);
+  const totals={openPos:openPos.length,shortfallItems:shortfalls.length,
+    shortfallUnits:shortfalls.reduce((s,r)=>s+r.shortage,0),shortfallValue:+shortfalls.reduce((s,r)=>s+r.shortageValue,0).toFixed(2),
+    excessItems:excess.length,excessValue:+excess.reduce((s,r)=>s+r.excessValue,0).toFixed(2),
+    deadItems:deadStock.length,deadValue:+deadStock.reduce((s,r)=>s+r.stockValue,0).toFixed(2),
+    lowStock:DB.items.filter(i=>Number(i.minStock)>0&&(Number(i.stockInHand)||0)<Number(i.minStock)).length};
+  return {totals,shortfalls,excess,deadStock,openPos:poRows.sort((a,b)=>b.id-a.id)};
+}
+function pgAnalysis(){
+  const A=computeAnalysis(); const t=A.totals;
+  $('#app').innerHTML=`<div class="h1">📊 Inventory & PO Analysis</div>
+  <p class="sub">Shortfalls against open POs, excess stock, and idle (dead) inventory — computed live from your sheet data.</p>
+  <div class="toolbar">
+    <select onchange="deadDays=Number(this.value);pgAnalysis()">
+      ${[30,60,90,180].map(d=>`<option value="${d}" ${deadDays===d?'selected':''}>Idle ≥ ${d} days</option>`).join('')}</select>
+    <span style="flex:1"></span>
+    <button class="btn o" onclick="pgAnalysis()">⟳ Refresh</button></div>
+  ${statCards([
+    {icon:'📋',l:'Open POs',v:t.openPos,bg:'#e0e7ff',fg:'#4f46e5'},
+    {icon:'⚠️',l:'Shortfall Items',v:t.shortfallItems,bg:'#fee2e2',fg:'#dc2626'},
+    {icon:'⚠️',l:'Shortfall Units',v:t.shortfallUnits.toLocaleString('en-IN'),bg:'#fee2e2',fg:'#dc2626'},
+    {icon:'📈',l:'Excess Stock',v:inr(t.excessValue),bg:'#fef3c7',fg:'#d97706'},
+    {icon:'📦',l:'Idle Stock ('+deadDays+'d+)',v:inr(t.deadValue),bg:'#f1f5f9',fg:'#475569'},
+    {icon:'₹',l:'Shortfall Value',v:inr(t.shortfallValue),bg:'#ffe4e6',fg:'#e11d48'}])}
+  <div class="card" style="margin-bottom:14px"><div style="padding:14px 14px 4px;font-weight:700">Open Purchase Orders — can we fulfil them?</div>
+   <div class="tblwrap" style="padding:10px 14px 14px"><table><thead><tr><th>PO</th><th>Date</th><th>Customer</th><th class="r">Qty</th><th>Position</th><th class="r">Shortage</th></tr></thead><tbody>
+   ${A.openPos.length===0?'<tr><td colspan="6" class="mut" style="text-align:center;padding:20px">No open purchase orders.</td></tr>':
+     A.openPos.map(po=>`<tr><td class="b">${esc(po.poNumber)}</td><td>${po.poDate}</td><td>${esc(po.customerName)}</td>
+     <td class="r">${po.totalQty}</td><td>${po.sufficient?'<span class="badge g">SUFFICIENT</span>':'<span class="badge rd">INSUFFICIENT</span>'}</td>
+     <td class="r b" style="color:${po.shortageUnits?'#dc2626':'inherit'}">${po.shortageUnits||'—'}</td></tr>`).join('')}
+   </tbody></table></div></div>
+  <div class="card" style="margin-bottom:14px"><div style="padding:14px 14px 4px;font-weight:700;color:#b91c1c">⚠ Material Shortfalls</div>
+   <div class="tblwrap" style="padding:10px 14px 14px"><table><thead><tr><th>Item</th><th>Material</th><th>Source</th><th class="r">Required</th><th class="r">In Hand</th><th class="r">Shortage</th><th class="r">Value</th></tr></thead><tbody>
+   ${A.shortfalls.length===0?'<tr><td colspan="7" class="mut" style="text-align:center;padding:20px">No shortfalls — all open POs can be fulfilled from stock.</td></tr>':
+     A.shortfalls.map(s=>`<tr><td><div class="b">${esc(s.itemName)}</div><div class="mut" style="font-size:11px">${esc(s.partNumber||'')}</div></td>
+     <td>${esc(s.materialType||'—')}</td><td>${s.source==='inhouse'?'<span class="badge bl">Inhouse</span>':`<span class="badge vi">${esc(s.vendorName||'Vendor')}</span>`}</td>
+     <td class="r">${s.required}</td><td class="r">${s.onHand}</td><td class="r b" style="color:#dc2626">${s.shortage}</td><td class="r">${inr(s.shortageValue)}</td></tr>`).join('')}
+   </tbody></table></div></div>
+  <div class="card" style="margin-bottom:14px"><div style="padding:14px 14px 4px;font-weight:700;color:#b45309">📈 Excess Stock (more on hand than open POs need)</div>
+   <div class="tblwrap" style="padding:10px 14px 14px"><table><thead><tr><th>Item</th><th>Material</th><th class="r">In Hand</th><th class="r">PO Need</th><th class="r">Excess</th><th class="r">Value</th></tr></thead><tbody>
+   ${A.excess.slice(0,100).map(s=>`<tr><td><div class="b">${esc(s.itemName)}</div><div class="mut" style="font-size:11px">${esc(s.partNumber||'')}</div></td>
+     <td>${esc(s.materialType||'—')}</td><td class="r">${s.onHand}</td><td class="r">${s.requiredByOpenPos}</td>
+     <td class="r b" style="color:#b45309">${s.excess}</td><td class="r">${inr(s.excessValue)}</td></tr>`).join('')||'<tr><td colspan="6" class="mut" style="text-align:center;padding:20px">No excess stock.</td></tr>'}
+   </tbody></table></div></div>
+  <div class="card"><div style="padding:14px 14px 4px;font-weight:700;color:#334155">📦 Idle / Dead Stock (no movement in ${deadDays}+ days)</div>
+   <div class="tblwrap" style="padding:10px 14px 14px"><table><thead><tr><th>Item</th><th>Material</th><th class="r">In Hand</th><th class="r">Value</th><th>Last Movement</th><th class="r">Days Idle</th></tr></thead><tbody>
+   ${A.deadStock.length===0?`<tr><td colspan="6" class="mut" style="text-align:center;padding:20px">Nothing idle for ${deadDays}+ days — stock is moving well.</td></tr>`:
+     A.deadStock.map(s=>`<tr><td><div class="b">${esc(s.itemName)}</div><div class="mut" style="font-size:11px">${esc(s.partNumber||'')}</div></td>
+     <td>${esc(s.materialType||'—')}</td><td class="r">${s.onHand}</td><td class="r">${inr(s.stockValue)}</td><td>${s.lastMovement}</td>
+     <td class="r"><span class="badge ${s.daysIdle>=180?'rd':'gr'}">${s.daysIdle}d</span></td></tr>`).join('')}
+   </tbody></table></div></div>`;
+}
+
+/* ================= ADMIN / BULK ================= */
+function pgAdmin(){
+  const aud=[...DB.audit].sort((a,b)=>Number(b.id)-Number(a.id)).slice(0,200);
+  $('#app').innerHTML=`<div class="h1">🛡️ Admin</div><p class="sub">Settings, passcode, bulk tools, audit log & backup.</p>
+  <div class="card" style="padding:14px;margin-bottom:14px"><b>Connection Settings</b>
+    <div class="frow" style="margin-top:10px"><div><span class="lbl">Apps Script /exec URL</span>
+      <input id="set_api" style="width:100%" value="${esc(API)}">
+      <div class="mut" style="font-size:11px;margin-top:3px">From Deploy → Manage deployments → <b>Web app URL</b> (ends in <code>/exec</code>). Do NOT use the Library URL.</div></div>
+    <div><span class="lbl">Hugging Face token (for bill OCR)</span>
+      <input id="set_hf" style="width:100%" value="${esc(localStorage.getItem('mv_hf')||'')}" placeholder="hf_…">
+      <div class="mut" style="font-size:11px;margin-top:3px">Fine-grained token with <b>“Make calls to Inference Providers”</b> permission (huggingface.co → Settings → Access Tokens).</div></div></div>
+    <button class="btn" onclick="localStorage.setItem('mv_api',document.getElementById('set_api').value.trim());localStorage.setItem('mv_hf',document.getElementById('set_hf').value.trim());toast('Saved — reloading','ok');setTimeout(()=>location.reload(),700)">Save Settings</button>
+    <button class="btn o" onclick="testConn()">Test Connection</button>
+    <button class="btn o" onclick="api({action:'bootstrap'}).then(r=>toast(r&&r.spreadsheetUrl?('Sheets ready — '+(r.mode==='bound'?'bound spreadsheet':'auto-created sheet')+': '+r.spreadsheetUrl):'Sheets verified/created','ok')).catch(e=>toast(e.message,'err'))">Create/Verify Sheet Tabs</button>
+    <button class="btn o" id="stBtn" onclick="runSelfTest()">🧪 Run Backend Self-Test</button>
+    <div id="st_out" style="margin-top:10px"></div></div>
+  <div class="card" style="padding:14px;margin-bottom:14px"><b>Change Passcode</b>
+    <p class="mut" style="margin:6px 0 10px;font-size:12px">Stored (as a hash) in the <code>Settings</code> tab of your Google Sheet — everyone gets the new passcode immediately. Minimum 4 characters.</p>
+    <div class="frow3"><div><span class="lbl">Current Passcode</span><input id="pc_cur" type="password" style="width:100%"></div>
+    <div><span class="lbl">New Passcode</span><input id="pc_new" type="password" style="width:100%"></div>
+    <div><span class="lbl">Confirm New</span><input id="pc_cf" type="password" style="width:100%"></div></div>
+    <button class="btn" id="pcGo" onclick="changePass()">Update Passcode</button></div>
+  <div class="card" style="padding:14px;margin-bottom:14px"><b>Backup & Restore</b>
+    <p class="mut" style="margin:6px 0 10px">Download the entire database as JSON, or restore it into a fresh spreadsheet. (Images live in Google Drive and are not part of this backup.)</p>
+    <button class="btn o" onclick="download('megaverks-backup-'+today()+'.json',JSON.stringify(DB),'application/json')">⬇ Export all data (JSON)</button>
+    <input type="file" id="rst" accept=".json" style="margin-left:8px" onchange="restoreAll(this)"></div>
+  <div class="card tblwrap"><div style="padding:14px 14px 4px;font-weight:700">Audit Log (last ${aud.length})</div>
+   <table><thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Entity</th><th>Detail</th></tr></thead><tbody>
+   ${aud.map(a=>`<tr><td class="mut" style="font-size:12px">${esc(a.createdAt)}</td><td>${esc(a.actor)}</td>
+     <td><span class="badge ${/remove|delete/.test(a.action)?'rd':/bulk|stock|payment|dispatch/.test(a.action)?'bl':'gr'}">${esc(a.action)}</span></td>
+     <td>${esc(a.entity)} #${esc(a.entityId)}</td><td class="mut">${esc(a.detail)}</td></tr>`).join('')||'<tr><td colspan="5" class="mut" style="text-align:center;padding:20px">No activity yet.</td></tr>'}
+   </tbody></table></div>`;
+}
+async function changePass(){
+  const cur=$('#pc_cur').value, nw=$('#pc_new').value, cf=$('#pc_cf').value;
+  if(nw.length<4) return toast('New passcode must be at least 4 characters','err');
+  if(nw!==cf) return toast('New passcodes do not match','err');
+  try{ $('#pcGo').disabled=true;
+    await api({action:'changePasscode',current:cur,next:nw});
+    toast('Passcode changed for everyone','ok');
+    $('#pc_cur').value=$('#pc_new').value=$('#pc_cf').value=''; }
+  catch(e){ toast(e.message,'err'); }
+  $('#pcGo').disabled=false;
+}
+async function testConn(){ try{ const r=await api({action:'ping'}); toast('Connected — '+r.version,'ok'); }
+  catch(e){ toast('Failed: '+e.message,'err'); } }
+async function runSelfTest(){
+  const box=$('#st_out'), btn=$('#stBtn'); if(btn) btn.disabled=true;
+  box.innerHTML='<p class="mut" style="font-size:12px">Running self-test on the backend…</p>';
+  try{
+    const r=await api({action:'selftest'});
+    box.innerHTML=`<p style="margin:4px 0 6px"><span class="badge ${r.pass?'g':'rd'}">${r.okCount}/${r.total} checks passed</span>
+      <span class="mut" style="font-size:11px"> ${esc(r.time)}</span></p>
+      <table style="font-size:12.5px">${r.checks.map(c=>`<tr><td style="padding:3px 8px">${c.ok?'✅':'❌'}</td>
+        <td style="padding:3px 8px">${esc(c.name)}</td><td class="mut" style="padding:3px 8px">${esc(c.detail)}</td></tr>`).join('')}</table>`;
+    toast(r.pass?'Backend self-test passed ✓':'Self-test found issues — see below', r.pass?'ok':'err');
+  }catch(e){
+    box.innerHTML=`<p style="color:#dc2626;font-size:12.5px">Self-test failed: ${esc(e.message)}</p>`;
+  }
+  if(btn) btn.disabled=false;
+}
+async function restoreAll(inp){ const f=inp.files[0]; if(!f) return;
+  if(!confirm('Restore '+f.name+' ? Existing rows with same IDs are overwritten; new rows appended.')) return;
+  try{ const data=JSON.parse(await f.text());
+    for(const e of ENTITIES){ if(e==='audit') continue;
+      for(const rec of (data[e]||[])) await api({action:'update',entity:e,record:rec}).catch(()=>api({action:'create',entity:e,record:rec})); }
+    reloadAndStay('Restore complete'); }catch(e){ toast('Restore failed: '+e.message,'err'); } }
+function bulkDlg(entity){
+  const names={items:'Inventory Items',vendors:'Vendors',products:'Products',pos:'Purchase Orders'};
+  const notes={items:['Existing items (same company + name + part number) are updated; new ones added.',
+    "Vendor names matching the Vendor Database are auto-linked.","Columns (any order): "+Object.keys(ALIASES.items).join(', ')],
+    vendors:['Matched by vendor name (update) else created. Credit days default 30.'],
+    products:['Matched by name + company.'],
+    pos:['One row per line — repeat the PO Number for each line. Customers auto-created; products must exist; existing PO numbers skipped.']};
+  modal('Bulk Upload — '+names[entity],`
+  ${notes[entity].map(n=>`<div class="note" style="margin:4px 0">${esc(n)}</div>`).join('')}
+  <span class="lbl">Paste CSV (copied from Excel) or choose a .csv file</span>
+  <input type="file" id="bk_file" accept=".csv" style="margin-bottom:8px">
+  <textarea id="bk_text" rows="7" style="width:100%" placeholder="Item Name,Part Number,Vendor Name,Price,Stock In Hand&#10;M6 CAGE NUT,M6 X 20,BENGLORE FASTENERS,3.40,2000"></textarea>
+  <div id="bk_prev"></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="bkGo" onclick="runBulk('${entity}')">Upload</button>`);
+  $('#bk_file').onchange=async e=>{ const f=e.target.files[0]; if(f) $('#bk_text').value=await f.text(); };
+}
+async function runBulk(entity){
+  const grid=parseCSV($('#bk_text').value); if(grid.length<2) return toast('Paste CSV with a header row first','err');
+  const map=mapHeaders(grid[0],ALIASES[entity]); if(map.name===undefined&&entity!=='pos') return toast('Could not find a name column — check headers','err');
+  if(entity==='pos'&&map.poNumber===undefined) return toast('Could not find PO Number column','err');
+  const rows=grid.slice(1).map(r=>{ const o={}; for(const k in map) o[k]=r[map[k]]||''; return o; }).filter(o=>Object.values(o).some(v=>String(v).trim()));
+  if(!rows.length) return toast('No data rows','err');
+  $('#bk_prev').innerHTML=`<pre class="pv">Parsed ${rows.length} row(s):\n${esc(JSON.stringify(rows.slice(0,5),null,1))}${rows.length>5?'\n…':''}</pre>`;
+  try{ $('#bkGo').disabled=true;
+    const res=await api({action:'bulk',entity,rows});
+    document.querySelector('.overlay').remove();
+    reloadAndStay(`Bulk done — ${res.added||0} added, ${res.updated||0} updated${res.skipped?`, ${res.skipped} skipped`:''}`); }
+  catch(e){ $('#bkGo').disabled=false; toast(e.message,'err'); } }
+
+/* ================= BOOT ================= */
+(async function(){
+  if(ACTOR){ $('#actorBtn').textContent=ACTOR; $('#actorBtn').classList.add('set'); }
+  const ok=await gate();                 // passcode screen first
+  if(!ok){                               // setup mode: no backend URL yet → open Admin directly
+    location.hash='#admin'; route();
+    setTimeout(()=>toast('Paste your Apps Script /exec URL below and Save Settings','err'),300);
+    return;
+  }
+  $('#logoutBtn').style.display='block';
+  let loaded=true;
+  try{ await loadAll(); }
+  catch(e){ loaded=false;
+    $('#app').innerHTML=`<div class="card" style="padding:24px;max-width:560px;margin:40px auto">
+    <b>Cannot reach the backend.</b><p class="sub" style="margin:8px 0">${esc(e.message)}</p>
+    <p style="font-size:13px">1. Create the Apps Script (Code.gs) in a Google Sheet → Deploy → Web app (access: <i>Anyone</i>).<br>
+    2. Open <a href="#admin">Admin → Settings</a> and paste the <code>/exec</code> URL, then reload.</p>
+    <a class="btn" href="#admin" style="display:inline-block;text-decoration:none">Go to Settings</a></div>`; }
+  syncStamp();
+  startAutoSync();
+  if(loaded){
+    // once-per-day cloud backup (server no-ops if already backed up in last 24h)
+    api({action:'autoBackup'}).then(r=>{ if(r && r.backedUp) toast('Daily cloud backup created in Drive folder "MEGAVERKS Backups"','ok'); }).catch(()=>{});
+    route();
+  }
+})();
+</script>
+</body>
+</html>
