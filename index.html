@@ -94,7 +94,7 @@ pre.pv{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding
 const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwf86CQStIgulButlH0e4kJps1alZ2yodU8BIN7YVsWMvL7YiifuHE-YygoNRHGCSHJ/exec';
 const API = localStorage.getItem('mv_api') || DEFAULT_API;
 const API_UNSET = !localStorage.getItem('mv_api') && !DEFAULT_API;
-const ENTITIES = ['items','products','vendors','customers','invoices','payments','pos','poLines','bom','movements','audit'];
+const ENTITIES = ['items','products','vendors','customers','invoices','payments','pos','poLines','dispatches','bom','movements','audit'];
 const DB = {}; ENTITIES.forEach(e=>DB[e]=[]);   // pre-fill so pages render even before/without a backend
 /* instant local-cache updates: a save shows on screen immediately; the sheet reconciles in the background */
 function localUpsert(entity, rec){ if(!rec) return; const arr=DB[entity]||(DB[entity]=[]);
@@ -158,11 +158,91 @@ async function api(p){
   }
   return j.data;
 }
-async function loadAll(){
+let __actionGen=0;   // bumped by every reloadAndStay — a stale background refresh must never clobber newer edits
+async function loadAll(gen){
   const results = await Promise.allSettled(ENTITIES.map(e=>api({action:'list',entity:e})));
   const failed = results.filter(x=>x.status==='rejected');
   if(failed.length === ENTITIES.length) throw failed[0].reason;   // backend totally unreachable → error card
+  if(gen && gen!==__actionGen) return;                            // a newer action superseded this refresh
   ENTITIES.forEach((e,i)=>DB[e]=results[i].status==='fulfilled'?results[i].value:[]);
+  try{ const o = await api({action:'getOptions'}); if(!gen || gen===__actionGen) DB.options = o; }catch(e){ DB.options = optionsDefaults(); }
+}
+/* ---- sheet-backed dropdown categories (Admin manages these) ---- */
+const OPTION_CATS = ['company','materialType','source','paymentMode'];
+const OPTION_LABELS = { company:'Company', materialType:'Material Type', source:'Source', paymentMode:'Payment Mode' };
+function optionsDefaults(){ return { company:['MEGAVERKS','VENGREE'],
+  materialType:['Sheet Metal','Fasteners','Electrical','Hardware','Consumables'],
+  source:['Inhouse','Vendor'], paymentMode:['Cash','UPI','Bank Transfer','Cheque','Credit'] }; }
+function catOptions(cat, cur){
+  const opts = ((DB.options||{})[cat]) || (optionsDefaults()[cat]) || [];
+  const list = opts.filter(Boolean);
+  const has = cur != null && cur !== '' && !list.map(x=>String(x).toLowerCase()).includes(String(cur).toLowerCase());
+  return (has?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:'') +
+    list.map(o=>`<option value="${esc(o)}" ${String(o).toLowerCase()===String(cur||'').toLowerCase()?'selected':''}>${esc(o)}</option>`).join('') +
+    `<option value="__new__">＋ New…</option>`;
+}
+function wireCatSelect(el, cat, onchange){
+  if(!el) return;
+  el.onchange = async e => {
+    if(e.target.value === '__new__'){ const v = await addCatOption(cat); if(v == null){ e.target.value=''; if(onchange) onchange(''); return; }
+      e.target.innerHTML = catOptions(cat, v); e.target.value = v; if(onchange) onchange(v); return; }
+    if(onchange) onchange(e.target.value);
+  };
+}
+async function addCatOption(cat){
+  const o = modal('Add ' + (OPTION_LABELS[cat] || cat), `<p class="sub">Saved to the sheet — available in every ${esc(OPTION_LABELS[cat] || cat)} dropdown for the whole team.</p>
+    <input id="nc_in" style="width:100%" placeholder="New option name">`,
+    `<button class="btn o" onclick="this.closest('.overlay').remove()">Cancel</button><button class="btn" id="nc_go">Add</button>`);
+  return await new Promise(res => {
+    o.querySelector('#nc_go').onclick = async () => {
+      const v = o.querySelector('#nc_in').value.trim(); if(!v) return;
+      o.querySelector('#nc_go').disabled = true;
+      try{
+        const cur = ((DB.options||{})[cat]) || [];
+        if(!cur.map(x=>String(x).toLowerCase()).includes(v.toLowerCase())) cur.push(v);
+        DB.options = await api({action:'saveOptions', options: Object.assign({}, DB.options, {[cat]: cur})});
+        o.remove(); toast('Added “' + v + '” to ' + (OPTION_LABELS[cat] || cat),'ok'); res(v);
+      }catch(err){ o.querySelector('#nc_go').disabled=false; toast(err.message,'err'); res(null); }
+    };
+    o.querySelector('#nc_in').focus();
+  });
+}
+/* ---- entity selects (vendors / products / customers) with inline "+ New" ---- */
+const ENTITY_LABELS = { vendors:'Vendor', products:'Product', customers:'Customer' };
+function entityOptionsHTML(kind, selId){
+  const list = (DB[kind]||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  const cur = list.find(x=>Number(x.id)===Number(selId));
+  return (cur?'':'<option value=""'+(selId?'':' selected')+'>— select —</option>') +
+    list.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(selId)?'selected':''}>${esc(x.name||('#'+x.id))}</option>`).join('') +
+    `<option value="__new__">＋ New ${ENTITY_LABELS[kind]||kind}…</option>`;
+}
+function wireEntitySelect(el, kind, onchange){
+  if(!el) return;
+  el.onchange = async e => {
+    if(e.target.value === '__new__'){ const rec = await quickCreateEntity(kind); if(!rec){ e.target.value=''; if(onchange) onchange(''); return; }
+      e.target.innerHTML = entityOptionsHTML(kind, rec.id); e.target.value = rec.id; if(onchange) onchange(rec.id); return; }
+    if(onchange) onchange(e.target.value);
+  };
+}
+function quickCreateEntity(kind, preset){
+  preset = preset || {};
+  const fields = { vendors:[['name','Name *'],['phone','Phone'],['gstin','GSTIN'],['address','Address']],
+    products:[['name','Name *'],['company','Company']],
+    customers:[['name','Name *'],['contactPerson','Contact'],['phone','Phone'],['gstin','GSTIN']] }[kind] || [['name','Name *']];
+  const o = modal('New ' + (ENTITY_LABELS[kind]||kind), `<div class="frow2">` +
+      fields.map(f=>`<div><span class="lbl">${f[1]}</span><input id="qe_${f[0]}" style="width:100%" value="${esc(preset[f[0]]||'')}"></div>`).join('') + `</div>`,
+    `<button class="btn o" onclick="this.closest('.overlay').remove()">Cancel</button><button class="btn" id="qe_go">Create</button>`);
+  return new Promise(res => {
+    o.querySelector('#qe_go').onclick = async () => {
+      const rec = {}; fields.forEach(f=>rec[f[0]] = o.querySelector('#qe_'+f[0]).value.trim());
+      if(!rec.name){ toast('Name required','err'); return; }
+      o.querySelector('#qe_go').disabled = true;
+      try{ const saved = await api({action:'create', entity: kind, record: rec});
+        DB[kind].push(saved); o.remove(); toast((ENTITY_LABELS[kind]||kind)+' created','ok'); res(saved);
+      }catch(err){ o.querySelector('#qe_go').disabled=false; toast(err.message,'err'); res(null); }
+    };
+    o.querySelector('#qe_name') && o.querySelector('#qe_name').focus();
+  });
 }
 
 /* ---------- passcode gate ---------- */
@@ -224,7 +304,7 @@ function showHelp(){
   <ol>
     <li>Open the app → enter passcode <b>mega1234</b> → Unlock.</li>
     <li>Go to <b>🛡️ Admin</b> → the backend URL is already pre-filled → click <b>Test Connection</b> (should say <i>Connected — V10-sheets-fixed</i>).</li>
-    <li>Click <b>Create/Verify Sheet Tabs</b> — this builds all 12 tabs in your Google Sheet automatically.</li>
+    <li>Click <b>Create/Verify Sheet Tabs</b> — this builds all 13 tabs in your Google Sheet automatically.</li>
     <li>Click <b>🧪 Run Backend Self-Test</b> — expect <b>8/8 ✅</b>. If the last check warns about a permission, run the <code>checkAuthorization</code> function once in the Apps Script editor (Run ▶ → Allow).</li>
     <li>Change the passcode in <b>Admin → Change Passcode</b> so only your team can enter.</li>
     <li>Optional: paste a <b>Hugging Face token</b> in Admin if you want bill OCR.</li>
@@ -243,17 +323,39 @@ function showHelp(){
     <li><b>You pay a vendor:</b> 🧾 Bills → <b>Record Payment</b> → status moves UNPAID → PARTIAL → PAID automatically.</li>
     <li><b>Customer order arrives:</b> 📋 Orders → Bulk Upload POs (customer is auto-created) or add manually.</li>
     <li><b>Define BOM once per product:</b> 🧩 Products → BOM — how many of each item per product.</li>
-    <li><b>Dispatch:</b> 📋 Orders → <b>Dispatch</b> — raw-material stock is deducted automatically per BOM × qty. Dispatch is blocked if stock is short.</li>
+    <li><b>Dispatch:</b> 📋 Orders → <b>Dispatched</b> on the PO card — enter the qty of each article actually sent, the date and the invoice number. Balances to dispatch stay visible until the order is complete; raw-material stock (BOM child parts) is deducted as <b>Stock OUT</b> per BOM × dispatched qty. Dispatch is blocked if stock is short.</li>
     <li><b>Watch stock:</b> 📦 Inventory shows low-stock badges (below Min Stock); 📊 Analysis shows consumption and vendor/product views.</li>
     <li><b>Compare suppliers:</b> 📊 Analysis → <b>⚖️ Vendor Comparison</b> — search an item or part number to chart <b>price, lead time and credit period</b> for every vendor supplying that article (best value in each column marked ★). Add the same part number under each vendor in Inventory first.</li>
   </ol>
-  <h4>4 · Housekeeping</h4>
+  <h4>4 · Item &amp; product images (three ways)</h4>
+  <p>Photos appear in the Inventory table (IMAGE column) and next to each item name in the user panel. Choose whichever source suits you:</p>
+  <p><b>A · Repo image pool (recommended — always works).</b> Keep photos in the GitHub repo's <code>images/</code> folder next to <code>index.html</code>. In any item row click <b>⤴ Replace → 📁 From repo pool</b>, pick a photo (or type its path, e.g. <code>images/my-photo.jpg</code>) and press <b>Use</b>. The short path is saved in the sheet and the photo is served by GitHub Pages itself — no Drive sharing needed, so it can never break.</p>
+  <img src="images/help/inventory-images.png" alt="Inventory with photos" style="max-width:100%;border:1px solid var(--line);border-radius:8px;margin:6px 0">
+  <img src="images/help/pool-picker.png" alt="Repo pool picker" style="max-width:100%;border:1px solid var(--line);border-radius:8px;margin:6px 0">
+  <p><b>B · Upload straight to the row.</b> <b>⤴ Replace → ⬆ Upload photo</b> stores the photo in the app's Google Drive folder and shows it via the built-in backend proxy — it displays even if your Google account blocks public link sharing.</p>
+  <p><b>C · Image staging (Admin → 🖼️ Image Staging).</b> Upload photos with a proper name — each is renamed (<code>PART_&lt;name&gt;.jpg</code> or <code>PRODUCT_&lt;name&gt;.jpg</code>) and saved in the app's Drive folder. Access them any time below (⬇ download, 🗑 trash), and when ready add them to the repo's <code>images/</code> folder to assign via the repo pool.</p>
+  <img src="images/help/image-staging.png" alt="Image staging" style="max-width:100%;border:1px solid var(--line);border-radius:8px;margin:6px 0">
+  <h4>5 · Partial dispatch tracking</h4>
+  <p>Each PO is a card headed by its <b>PO number</b>, with the articles inside. Click <b>Dispatched</b>, enter per-article quantities, date and invoice number — the card then shows <b>Ordered / Dispatched / Balance</b>, a progress bar and a <b>Dispatch History</b> (Details button). Remaining balances stay in the open list until fully sent; stock is deducted per BOM exactly for the dispatched qty.</p>
+  <img src="images/help/po-dispatch.png" alt="PO card with dispatch progress" style="max-width:100%;border:1px solid var(--line);border-radius:8px;margin:6px 0">
+  <img src="images/help/dispatch-dialog.png" alt="Dispatch dialog" style="max-width:100%;border:1px solid var(--line);border-radius:8px;margin:6px 0">
+  <h4>6 · Invoice OCR, purchase photos &amp; dropdowns</h4>
+  <p><b>✨ OCR reads the vendor bill for you.</b> In 🧾 Bills → ＋ Add Bill, pick the invoice photo in the <b>OCR</b> field and press <b>✨ Extract invoice details</b>. Invoice number, date, GSTIN, phone, address, vendor name and grand total are pulled out, the invoice fields are pre-filled, and the full text lands in Notes. Choose the engine in <b>🛡️ Admin → ✨ OCR engine</b>: <i>Hugging Face</i> (free token, zero setup) or a <i>Custom endpoint</i> — a self-hosted PaddleOCR server (setup in README) that reads invoices on your own machine for maximum robustness and privacy. The token stays server-side in the Settings tab — the browser never talks to the OCR provider.</p>
+  <p><b>Purchase photos are filed automatically.</b> Pick the invoice photo in the <b>Attachment</b> field — on Save it is uploaded to the <i>MEGAVERKS Purchases</i> Drive folder and named <code>VENDOR_INVOICE-DATE.jpg</code> (e.g. <code>SHREE_BALAJI_2026-08-15.jpg</code>). Duplicates get a <code>_2</code> suffix.</p>
+  <p><b>New vendors join the Vendor List automatically.</b> When OCR finds a vendor you don't have, a green note appears — saving the bill creates the vendor with its <b>GSTIN, address and contact number</b>. If the vendor exists but is missing those details, they're filled in from the invoice.</p>
+  <p><b>Dropdowns are fully editable.</b> 🛡️ Admin → <b>🗂️ Dropdown categories</b> manages Company, Material Type, Source and Payment Mode (add with ＋, delete with ✕). You can also add inline — pick <b>＋ New…</b> inside any dropdown (vendor, product, company…), type the name, and it's saved to the sheet for the whole team.</p>
+  <h4>7 · Vendor comparison &amp; self-test</h4>
+  <p><b>⚖️ Vendor Comparison</b> (📊 Analysis) charts <b>price, lead time and credit period</b> for every vendor supplying the same part number — best value in each column marked ★, with a one-line verdict.</p>
+  <img src="images/help/vendor-comparison.png" alt="Vendor comparison" style="max-width:100%;border:1px solid var(--line);border-radius:8px;margin:6px 0">
+  <p><b>🧪 Run Backend Self-Test</b> (🛡️ Admin) verifies the spreadsheet, all 13 tabs, passcode, Drive folder, image read/write, backups and triggers. Expect <b>8/8 ✅</b>. If your Google org blocks public link sharing, the Drive check shows a <b>⚠ warning and still passes</b> — the app serves those photos through the backend itself, so no action is needed.</p>
+  <img src="images/help/self-test.png" alt="Self-test 8 of 8 passed" style="max-width:100%;border:1px solid var(--line);border-radius:8px;margin:6px 0">
+  <h4>8 · Housekeeping</h4>
   <ul>
     <li><b>Backups:</b> a full copy of the spreadsheet is made automatically once a day (after the one-time authorization) and every login older than 24 h. Admin → <b>Export all data (JSON)</b> for your own copy anytime.</li>
     <li><b>Audit log:</b> Admin → Audit Log shows who changed what and when.</li>
     <li><b>Images</b> (bill photos, item photos) are stored in the <i>MEGAVERKS Inventory V10</i> folder in your Google Drive.</li>
   </ul>
-  <h4>5 · If something looks wrong</h4>
+  <h4>9 · If something looks wrong</h4>
   <ul>
     <li>Red toast / can’t save → <b>Admin → Test Connection</b>, then <b>Run Backend Self-Test</b> and read the ❌ line — it tells you the exact fix.</li>
     <li>“Synced” time in the top bar shows the last successful cloud sync; ⚠ offline means the backend didn’t answer.</li>
@@ -405,10 +507,10 @@ function itemImgRemove(itemId){
   confirmDlg(`Remove the image for <b>"${esc(it.name)}"</b>?${driveImgId(it.imageData)?' The Drive photo is moved to trash.':' The photo file itself stays in the repo (only the link is removed).'}`,async()=>{
     const oldUrl=it.imageData;
     try{
-      await api({action:'update',entity:'items',record:Object.assign({},it,{imageData:''})});
-      it.imageData='';
+      const cleared=Object.assign({},it,{imageData:''});
+      await api({action:'update',entity:'items',record:cleared});
       if(isImgUrl(oldUrl)) api({action:'deleteImage',imageUrl:oldUrl}).catch(()=>{});
-      toast('Image removed','ok'); pgInventory();
+      reloadAndStay('Image removed','ok',()=>localUpsert('items',cleared));
     }catch(err){ toast(err.message,'err'); }
   });
 }
@@ -477,9 +579,10 @@ function customerOptions(sel){ return DB.customers.map(c=>
   `<option value="${c.id}" ${Number(sel)===Number(c.id)?'selected':''}>${esc(c.name)}</option>`).join(''); }
 function exportCSV(name,headers,rows){ download(name+'.csv',toCSV([headers].concat(rows)),'text/csv'); toast('Exported '+name,'ok'); }
 function reloadAndStay(msg,type,quick){
+  const gen=++__actionGen;
   if(typeof quick==='function'){ try{ quick(); }catch(e){} }        // apply the change locally → visible instantly
   syncStamp(); route(); if(msg) toast(msg,type||'ok');
-  loadAll().then(()=>{ if(!document.querySelector('.overlay') && !document.querySelector('.lock')) route(); syncStamp(); }).catch(()=>{}); // reconcile with the sheet in the background
+  loadAll(gen).then(()=>{ if(gen!==__actionGen) return; if(!document.querySelector('.overlay') && !document.querySelector('.lock')) route(); syncStamp(); }).catch(()=>{}); // reconcile with the sheet in the background
   return Promise.resolve();
 }
 
@@ -585,14 +688,14 @@ function itemDlg(id){
   <input type="hidden" id="f_id" value="${id||''}">
   <div class="frow"><div><span class="lbl">Item Name *</span><input id="f_name" style="width:100%" value="${esc(it.name||'')}"></div>
   <div><span class="lbl">Part Number</span><input id="f_pn" style="width:100%" value="${esc(it.partNumber||'')}"></div></div>
-  <div class="frow3"><div><span class="lbl">Company</span><select id="f_co" style="width:100%"><option ${it.company==='MEGAVERKS'?'selected':''}>MEGAVERKS</option><option ${it.company==='VENGREE'?'selected':''}>VENGREE</option></select></div>
-  <div><span class="lbl">Source</span><select id="f_src" style="width:100%"><option value="vendor" ${it.source!=='inhouse'?'selected':''}>Bought Out (Vendor)</option><option value="inhouse" ${it.source==='inhouse'?'selected':''}>Inhouse Sheetmetal</option></select></div>
-  <div><span class="lbl">Vendor</span><select id="f_ven" style="width:100%">${vendorOptions(it.vendorId)}</select></div></div>
-  <div class="frow3"><div><span class="lbl">Material Type</span><input id="f_mt" style="width:100%" value="${esc(it.materialType||'')}"></div>
+  <div class="frow3"><div><span class="lbl">Company</span><select id="f_co" style="width:100%">${catOptions('company', it.company||'MEGAVERKS')}</select></div>
+  <div><span class="lbl">Source</span><select id="f_src" style="width:100%">${catOptions('source', (it.source==='inhouse'?'Inhouse':it.source==='vendor'?'Vendor':it.source)||'Vendor')}</select></div>
+  <div><span class="lbl">Vendor</span><select id="f_ven" style="width:100%">${entityOptionsHTML('vendors', it.vendorId)}</select></div></div>
+  <div class="frow3"><div><span class="lbl">Material Type</span><select id="f_mt" style="width:100%">${catOptions('materialType', it.materialType||'')}</select></div>
   <div><span class="lbl">Price (₹)</span><input id="f_pr" type="number" step="any" style="width:100%" value="${it.price||''}"></div>
   <div><span class="lbl">MOQ</span><input id="f_moq" style="width:100%" value="${esc(it.moq||'')}"></div></div>
   <div class="frow3"><div><span class="lbl">Lead Time</span><input id="f_lt" style="width:100%" value="${esc(it.leadTime||'')}"></div>
-  <div><span class="lbl">Product Used</span><select id="f_prod" style="width:100%">${productOptions(it.productId)}</select></div>
+  <div><span class="lbl">Product Used</span><select id="f_prod" style="width:100%">${entityOptionsHTML('products', it.productId)}</select></div>
   <div><span class="lbl">Min Stock</span><input id="f_min" type="number" style="width:100%" value="${it.minStock||0}"></div></div>
   <div><span class="lbl">Instructions</span><textarea id="f_ins" style="width:100%" rows="2">${esc(it.instructions||'')}</textarea></div>
   <div style="margin-top:8px"><span class="lbl">Image (repo pool photo or Google Drive — only the link is saved in the sheet)</span>
@@ -601,6 +704,11 @@ function itemDlg(id){
     <div id="f_imgst" class="mut" style="font-size:11px;margin-top:3px">${it.imageData?(isImgUrl(it.imageData)?'Current: Drive image (kept unless replaced)':'Current: embedded image (kept unless replaced)'):'No image yet'}</div></div>`,
   `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="fSave" onclick="saveItem()">Save Item</button>`);
   o.dataset.img = it.imageData||'';
+  wireCatSelect(o.querySelector('#f_co'),'company');
+  wireCatSelect(o.querySelector('#f_src'),'source');
+  wireCatSelect(o.querySelector('#f_mt'),'materialType');
+  wireEntitySelect(o.querySelector('#f_ven'),'vendors');
+  wireEntitySelect(o.querySelector('#f_prod'),'products');
   o.querySelector('#f_pool').onclick=()=>pickRepoImage(pt=>{ o.dataset.img=pt; const st=o.querySelector('#f_imgst'); st.textContent='✓ Repo pool image: '+pt; st.style.color='#059669'; });
   o.querySelector('#f_img').onchange = async e=>{
     const file=e.target.files[0]; if(!file) return;
@@ -613,10 +721,12 @@ function itemDlg(id){
 }
 async function saveItem(){
   const id=$('#f_id').value, name=$('#f_name').value.trim(); if(!name) return toast('Item name required','err');
-  const ven=$('#f_ven'); const rec={ name, partNumber:$('#f_pn').value.trim(), company:$('#f_co').value,
-    source:$('#f_src').value, vendorId:ven.value||'', vendorName:ven.value?(ven.options[ven.selectedIndex].text):'',
+  const ven=$('#f_ven'); const srcRaw=$('#f_src').value;
+  const srcNorm=/in-?house/i.test(srcRaw)?'inhouse':(/vendor/i.test(srcRaw)?'vendor':String(srcRaw||'').toLowerCase());
+  const rec={ name, partNumber:$('#f_pn').value.trim(), company:$('#f_co').value,
+    source:srcNorm, vendorId:(ven.value&&ven.value!=='__new__')?ven.value:'', vendorName:(ven.value&&ven.value!=='__new__'&&ven.selectedIndex>=0)?(ven.options[ven.selectedIndex].text):'',
     materialType:$('#f_mt').value.trim(), price:$('#f_pr').value||'', moq:$('#f_moq').value.trim(),
-    leadTime:$('#f_lt').value.trim(), productId:$('#f_prod').value||'', minStock:$('#f_min').value||0,
+    leadTime:$('#f_lt').value.trim(), productId:($('#f_prod').value&&$('#f_prod').value!=='__new__')?$('#f_prod').value:'', minStock:$('#f_min').value||0,
     instructions:$('#f_ins').value, imageData:document.querySelector('.overlay').dataset.img||'' };
   try{ $('#fSave').disabled=true;
     let saved;
@@ -850,10 +960,10 @@ function renderBillDlg(err){
   const c=billCalc(d);
   d.subtotal=c.sub; d.taxAmount=c.taxAmt; d.total=c.total;
   modal('Add Vendor Bill', `${err?`<div class="note">${esc(err)}</div>`:''}
-  <div class="frow3"><div><span class="lbl">Vendor *</span><select id="b_ven" style="width:100%">${vendorOptions(d.vendorId)}</select></div>
+  <div class="frow3"><div><span class="lbl">Vendor *</span><select id="b_ven" style="width:100%">${entityOptionsHTML('vendors', d.vendorId)}</select></div>
   <div><span class="lbl">Invoice No *</span><input id="b_no" style="width:100%" value="${esc(d.invoiceNumber||'')}"></div>
   <div><span class="lbl">Invoice Date</span><input id="b_dt" type="date" style="width:100%" value="${d.invoiceDate||today()}"></div></div>
-  <div class="frow3"><div><span class="lbl">Payment Mode</span><select id="b_pm" style="width:100%">${['Credit','UPI','NEFT/RTGS','Cheque','Cash'].map(m=>`<option ${(d.paymentMode||'Credit')===m?'selected':''}>${m}</option>`).join('')}</select></div>
+  <div class="frow3"><div><span class="lbl">Payment Mode</span><select id="b_pm" style="width:100%">${catOptions('paymentMode', d.paymentMode||'Credit')}</select></div>
   <div><span class="lbl">Advance Paid (₹)</span><input id="b_adv" type="number" step="any" style="width:100%" value="${d.advancePaid||0}"></div>
   <div><span class="lbl">Credit Days</span><input id="b_cd" type="number" style="width:100%" value="${d.creditDays||30}"></div></div>
   <table style="margin-bottom:8px"><thead><tr><th>Description</th><th style="width:80px">Qty</th><th style="width:110px">Rate ₹</th><th class="r" style="width:100px">Amount</th><th></th></tr></thead><tbody>
@@ -868,20 +978,21 @@ function renderBillDlg(err){
     <option value="NONE" ${c.taxType==='NONE'?'selected':''}>No tax</option><option value="GST_ADD" ${c.taxType==='GST_ADD'?'selected':''}>GST added</option><option value="GST_INCL" ${c.taxType==='GST_INCL'?'selected':''}>GST inclusive</option></select></div>
   <div><span class="lbl">GST %</span><input type="number" step="any" style="width:100%" value="${c.gstRate}" oninput="billDraft.gstRate=this.value;updateBillTotals()"></div>
   <div><span class="lbl">Total (auto)</span><div class="b" id="b_total" style="font-size:18px;padding-top:6px">${inr(c.total)}</div></div></div>
-  <div class="frow"><div><span class="lbl">Attachment (photo of invoice → Google Drive)</span><input type="file" id="b_att" accept="image/*">
-    <div id="b_attst" class="mut" style="font-size:11px;margin-top:3px">${d.attachmentData?'✓ Attachment uploaded — kept unless replaced':'Only the Drive link is stored in the sheet'}</div></div>
-  <div><span class="lbl">OCR (Unlimited-OCR)</span><input type="file" id="b_ocr" accept="image/*">
-    <button class="btn o sm" style="margin-top:4px" onclick="runOcr()">✨ Extract text to Notes</button></div></div>
+  <div id="b_newven"></div>
+  <div class="frow"><div><span class="lbl">Attachment (invoice photo → saved in Drive “Purchases” folder)</span><input type="file" id="b_att" accept="image/*">
+    <div id="b_attst" class="mut" style="font-size:11px;margin-top:3px">${d.attachmentData?'✓ Attachment uploaded earlier — kept unless replaced':'Chosen photo is uploaded on Save, named VENDOR_INVOICEDATE'}</div></div>
+  <div><span class="lbl">✨ OCR — read the invoice automatically</span><input type="file" id="b_ocr" accept="image/*">
+    <button class="btn o sm" style="margin-top:4px" onclick="runOcr()">✨ Extract invoice details</button>
+    <div id="b_ocrst" class="mut" style="font-size:11px;margin-top:3px">Fills invoice no, date, total & notes; new vendors are offered for the Vendor list</div></div></div>
   <div style="margin-top:6px"><span class="lbl">Notes</span><textarea id="b_notes" style="width:100%" rows="3">${esc(d.notes||'')}</textarea></div>`,
   `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button><button class="btn" id="bSave" onclick="saveBill()">Save Bill</button>`);
-  $('#b_att').onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
-    const st=$('#b_attst'); st.textContent='Uploading to Google Drive…';
-    try{ const r=await driveUpload(f); billDraft.attachmentData=r.url; billDraft.attachmentName=f.name;
-      st.textContent='✓ Uploaded: '+r.viewUrl; st.style.color='#059669'; }
-    catch(err){ st.textContent='Upload failed: '+err.message; st.style.color='#dc2626'; toast(err.message,'err'); } };
+  $('#b_att').onchange=e=>{ const f=e.target.files[0]; if(!f) return; billDraft._attFile=f;
+    const st=$('#b_attst'); st.textContent='✓ '+f.name+' — uploads to Drive on Save'; st.style.color='#059669'; };
   $('#b_ocr').onchange=e=>{ billDraft._ocrFile=e.target.files[0]; };
   /* bind every field to the draft — no re-render on typing, so nothing is ever lost */
-  $('#b_ven').onchange=e=>billDraft.vendorId=e.target.value;
+  wireCatSelect($('#b_pm'),'paymentMode',v=>billDraft.paymentMode=v);
+  wireEntitySelect($('#b_ven'),'vendors',v=>{ billDraft.vendorId=v; refreshNewVendorChip(); });
+  refreshNewVendorChip();
   $('#b_no').oninput=e=>billDraft.invoiceNumber=e.target.value;
   $('#b_dt').oninput=e=>billDraft.invoiceDate=e.target.value;
   $('#b_pm').onchange=e=>billDraft.paymentMode=e.target.value;
@@ -889,69 +1000,81 @@ function renderBillDlg(err){
   $('#b_cd').oninput=e=>billDraft.creditDays=e.target.value;
   $('#b_notes').oninput=e=>billDraft.notes=e.target.value;
 }
-async function runOcr(){ const tok=localStorage.getItem('mv_hf'); if(!tok) return toast('Set your Hugging Face token in Admin → Settings','err');
-  const f=billDraft&&billDraft._ocrFile; if(!f) return toast('Choose an image in the OCR field first','err');
+async function runOcr(){ const f=billDraft&&billDraft._ocrFile; if(!f) return toast('Choose an invoice image in the OCR field first','err');
+  const st=$('#b_ocrst'); st.textContent='Reading invoice…'; st.style.color='';
   try{
-    toast('Running OCR (baidu/Unlimited-OCR)…');
     const dataUrl=await fileToDataUrl(f,1600,0.85);
-    let txt='';
-    /* Current HF API: OpenAI-compatible chat completions on the router.
-       (The old hf-inference/models endpoint returns 404/410 for vision-language models.) */
-    const r=await fetch('https://router.huggingface.co/v1/chat/completions',{
-      method:'POST',
-      headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'baidu/Unlimited-OCR',
-        messages:[{role:'user',content:[
-          {type:'text',text:'Extract ALL text from this invoice image exactly as printed: vendor name, invoice number, date, GSTIN, every line item (description, qty, rate, amount), tax amounts and grand total. Output plain text only, no commentary.'},
-          {type:'image_url',image_url:{url:dataUrl}}]}],
-        max_tokens:2500, stream:false })});
-    if(r.ok){
-      const j=await r.json().catch(()=>null);
-      if(j&&j.choices&&j.choices[0]&&j.choices[0].message) txt=j.choices[0].message.content||'';
-      else if(typeof j==='string') txt=j;
-      else if(j&&(j.generated_text||j.text)) txt=j.generated_text||j.text;
-    }
-    if(!txt){ /* fallback: legacy task endpoint — some deployments still answer here */
-      const r2=await fetch('https://router.huggingface.co/hf-inference/models/baidu/Unlimited-OCR',{
-        method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/octet-stream'},body:f});
-      const raw2=await r2.text();
-      if(!r2.ok){
-        if(/deprecated|no longer supported/i.test(raw2))
-          throw new Error('OCR unavailable: HF no longer serves this model on the free inference API (HTTP '+r2.status+'). You can still attach the photo and type the bill manually.');
-        throw new Error('OCR failed: HTTP '+r2.status+' — '+(raw2.slice(0,160)||'check the token has "Make calls to Inference Providers" permission'));
-      }
-      let j2=null; try{ j2=JSON.parse(raw2); }catch(e){ txt=raw2; }
-      if(j2){ if(typeof j2==='string') txt=j2;
-        else if(Array.isArray(j2)&&j2[0]) txt=j2[0].generated_text||j2[0].text||'';
-        else txt=j2.generated_text||j2.text||''; }
-    }
-    txt=String(txt||'').trim();
-    if(!txt) throw new Error('OCR returned no text — try a clearer, straight-on photo of the bill.');
-    const nb=$('#b_notes'); const cur=nb.value.trim();
-    nb.value=(cur?cur+'\n\n':'')+txt.slice(0,4000);
-    billDraft.notes=nb.value;
-    toast('Text extracted to Notes — review and map line items','ok');
-  }catch(e){ toast(e.message,'err'); } }
+    const r=await api({action:'ocr',image:dataUrl});
+    const txt=String(r.text||'').trim(); const fld=r.fields||{};
+    if(!txt && !fld.invoiceNumber && !fld.gstin) throw new Error('OCR returned no readable text — try a clearer, straight-on photo of the bill.');
+    if(fld.invoiceNumber && !$('#b_no').value.trim()){ $('#b_no').value=fld.invoiceNumber; billDraft.invoiceNumber=fld.invoiceNumber; }
+    if(fld.invoiceDate){ $('#b_dt').value=fld.invoiceDate; billDraft.invoiceDate=fld.invoiceDate; }
+    if(fld.grandTotal){ billDraft._ocrTotal=fld.grandTotal; const tt=$('#b_total'); if(tt) tt.title='OCR grand total: '+fld.grandTotal; }
+    const nb=$('#b_notes'); const bits=[];
+    if(fld.vendor) bits.push('Vendor (OCR): '+fld.vendor);
+    if(fld.gstin) bits.push('GSTIN: '+fld.gstin);
+    if(fld.address) bits.push('Address: '+fld.address);
+    if(fld.phone) bits.push('Phone: '+fld.phone);
+    if(fld.invoiceNumber) bits.push('Invoice No: '+fld.invoiceNumber);
+    if(fld.invoiceDate) bits.push('Invoice Date: '+fld.invoiceDate);
+    if(fld.grandTotal) bits.push('Grand Total: '+fld.grandTotal);
+    if(txt) bits.push('', '--- full OCR text ---', txt.slice(0,4000));
+    nb.value=(bits.join('\n')).slice(0,6000); billDraft.notes=nb.value;
+    billDraft._ocrFields=fld;
+    st.textContent='✓ Extracted: '+(fld.vendor||'vendor')+(fld.invoiceNumber?(' · '+fld.invoiceNumber):'')+(fld.grandTotal?(' · ₹'+fld.grandTotal):'');
+    st.style.color='#059669';
+    refreshNewVendorChip();
+    toast('Invoice details extracted — review and Save','ok');
+  }catch(e){ st.textContent='OCR failed: '+e.message; st.style.color='#dc2626'; toast(e.message,'err'); } }
+function refreshNewVendorChip(){ const el=$('#b_newven'); if(!el) return; const d=billDraft||{};
+  const fld=d._ocrFields||{}; if(!fld.vendor && !fld.gstin){ el.innerHTML=''; d._newVendor=null; return; }
+  const cur=(DB.vendors||[]).find(v=>(fld.gstin && String(v.gstin||'').toLowerCase()===String(fld.gstin).toLowerCase())
+    || String(v.name||'').trim().toLowerCase()===String(fld.vendor||'').trim().toLowerCase());
+  if(cur){ d._newVendor=null;
+    if(d.vendorId!==cur.id){ d.vendorId=cur.id; const vs=$('#b_ven'); if(vs) vs.value=cur.id; }
+    const miss=[]; if(fld.gstin&&!cur.gstin)miss.push('GSTIN'); if(fld.address&&!cur.address)miss.push('address'); if(fld.phone&&!cur.phone)miss.push('phone');
+    el.innerHTML=miss.length?`<div class="note" style="border-color:#2563eb;background:#eff6ff;font-size:12px">ℹ️ Matched existing vendor “${esc(cur.name)}” — ${miss.join(', ')} from the invoice will be added on Save.</div>`:'';
+    d._patchVendor=miss.length?{id:cur.id,gstin:fld.gstin||cur.gstin,address:fld.address||cur.address,phone:fld.phone||cur.phone}:null;
+    return; }
+  d._newVendor={ name:fld.vendor||'New Vendor', gstin:fld.gstin||'', address:fld.address||'', phone:fld.phone||'', creditDays:30 };
+  el.innerHTML=`<div class="note" style="border-color:#059669;background:#ecfdf5;font-size:12px">🆕 New vendor “${esc(fld.vendor||'—')}”${fld.gstin?(' ('+esc(fld.gstin)+')'):''} will be <b>added to the Vendor List</b> when you Save this bill.</div>`; }
 async function saveBill(){ const d=billDraft; d.vendorId=$('#b_ven').value; d.invoiceNumber=$('#b_no').value.trim();
   d.invoiceDate=$('#b_dt').value; d.paymentMode=$('#b_pm').value; d.notes=$('#b_notes').value;
   d.creditDays=$('#b_cd').value||30; d.advancePaid=$('#b_adv').value||0;
+  if(d.vendorId==='__new__') d.vendorId='';
+  /* brand-new vendor from OCR → create it first, then bill against it */
+  if(!d.vendorId && d._newVendor && d._newVendor.name){
+    try{ $('#bSave').disabled=true;
+      const v=await api({action:'create',entity:'vendors',record:d._newVendor});
+      DB.vendors.push(v); d.vendorId=v.id; $('#bSave').disabled=false;
+    }catch(e){ $('#bSave').disabled=false; return renderBillDlg('Vendor auto-create failed: '+e.message); } }
   if(!d.vendorId) return renderBillDlg('Select a vendor');
   if(!d.invoiceNumber) return renderBillDlg('Invoice number required');
   d.lines=d.lines.filter(l=>l.description.trim());
   if(!d.lines.length) return renderBillDlg('Add at least one line item');
   const due=new Date(d.invoiceDate||today()); due.setDate(due.getDate()+Number(d.creditDays||30));
   try{ $('#bSave').disabled=true;
+    /* matched vendor missing GSTIN/address/phone → backfill from the invoice */
+    if(d._patchVendor && d._patchVendor.id){
+      const old=vendor(d._patchVendor.id);
+      if(old){ const patch=Object.assign({},old); ['gstin','address','phone'].forEach(k=>{ if(!patch[k]&&d._patchVendor[k]) patch[k]=d._patchVendor[k]; });
+        const savedV=await api({action:'update',entity:'vendors',record:patch}); localUpsert('vendors',savedV); } }
+    const vend=vendor(d.vendorId)||{};
+    /* invoice photo → Drive “Purchases” folder, named VENDOR_INVOICEDATE */
+    let att=d.attachmentData||'', attName=d.attachmentName||'';
+    if(d._attFile){ try{ const dataUrl=await fileToDataUrl(d._attFile,1600,0.8);
+        const up=await api({action:'uploadPurchase',dataUrl:dataUrl,vendorName:vend.name||'VENDOR',invoiceDate:d.invoiceDate||today()});
+        att=up.url; attName=up.name; }catch(e){ toast('Bill saved, but photo upload failed: '+e.message,'err'); } }
     const savedBill=await api({action:'create',entity:'invoices',record:{vendorId:d.vendorId,invoiceNumber:d.invoiceNumber,invoiceDate:d.invoiceDate,
       subtotal:d.subtotal,taxType:d.taxType,gstRate:d.gstRate||0,taxAmount:d.taxAmount,total:d.total,paymentMode:d.paymentMode,
       advancePaid:d.advancePaid||0,creditDays:d.creditDays,dueDate:due.toISOString().slice(0,10),lineItems:JSON.stringify(d.lines),
-      attachmentData:d.attachmentData||'',attachmentName:d.attachmentName||'',notes:d.notes||''}});
+      attachmentData:att,attachmentName:attName,notes:d.notes||''}});
     document.querySelector('.overlay').remove(); reloadAndStay('Bill saved','ok',()=>localUpsert('invoices',savedBill)); }catch(e){ $('#bSave').disabled=false; toast(e.message,'err'); } }
 
 /* ================= CUSTOMERS ================= */
 function pgCustomers(){
   const cs=DB.customers.map(c=>{ const pos=DB.pos.filter(p=>Number(p.customerId)===Number(c.id));
-    return Object.assign({},c,{poCount:pos.length,openPoCount:pos.filter(p=>p.status==='OPEN').length}); });
+    return Object.assign({},c,{poCount:pos.length,openPoCount:pos.filter(p=>p.status==='OPEN'||p.status==='PARTIAL').length}); });
   $('#app').innerHTML=`<div class="h1">👤 Customers</div><p class="sub">${cs.length} customers</p>
   <div class="toolbar"><span style="flex:1"></span>
   <button class="btn o" onclick="exportCSV('Customers',['Name','Contact','Phone','GSTIN','POs','Open POs'],cs.map(c=>[c.name,c.contactPerson||'',c.phone||'',c.gstin||'',c.poCount,c.openPoCount]))">⇩ Export</button>
@@ -986,35 +1109,93 @@ function delCust(id){ confirmDlg('Delete this customer? Their POs remain.',()=>a
 
 /* ================= PURCHASE ORDERS ================= */
 let poDraft=null;
+function poDispatched(poId, productId){
+  return DB.dispatches.filter(d=>Number(d.poId)===Number(poId)&&Number(d.productId)===Number(productId))
+    .reduce((s,d)=>s+Number(d.qty||0),0); }
+function poBalance(l){ return Math.max(0, Number(l.qty||0)-poDispatched(l.poId,l.productId)); }
+function poProgress(p){ const lines=DB.poLines.filter(l=>Number(l.poId)===Number(p.id));
+  const tot=lines.reduce((s,l)=>s+Number(l.qty||0),0);
+  const dsp=lines.reduce((s,l)=>s+poDispatched(l.poId,l.productId),0);
+  return {tot,dsp,pct:tot?Math.round(dsp*100/tot):0}; }
 function pgOrders(){
-  const pos=DB.pos.map(p=>{ const lines=DB.poLines.filter(l=>Number(l.poId)===Number(p.id));
-    return Object.assign({},p,{customerName:(customer(p.customerId)||{}).name||'—',lineCount:lines.length,
-      totalQty:lines.reduce((s,l)=>s+Number(l.qty||0),0)}); }).sort((a,b)=>Number(b.id)-Number(a.id));
-  const stCls={OPEN:'bl',DISPATCHED:'g',CANCELLED:'rd'};
+  const pos=DB.pos.slice().sort((a,b)=>Number(b.id)-Number(a.id));
+  const stCls={OPEN:'bl',PARTIAL:'a',DISPATCHED:'g',CANCELLED:'rd'};
   $('#app').innerHTML=`<div class="h1">📋 Customer Purchase Orders</div><p class="sub">${pos.length} orders</p>
   <div class="toolbar"><span style="flex:1"></span>
     <button class="btn o" onclick="bulkDlg('pos')">⇪ Bulk Upload</button>
-    <button class="btn o" onclick="exportCSV('PurchaseOrders',['PO No','Date','Customer','Lines','Qty','Status'],pos.map(p=>[p.poNumber,p.poDate,p.customerName,p.lineCount,p.totalQty,p.status]))">⇩ Export</button>
+    <button class="btn o" onclick="exportCSV('PurchaseOrders',['PO No','Date','Customer','Lines','Qty','Status'],pos.map(p=>{const ls=DB.poLines.filter(l=>Number(l.poId)===Number(p.id));return [p.poNumber,p.poDate,(customer(p.customerId)||{}).name||p.customerName||'—',ls.length,ls.reduce((s,l)=>s+Number(l.qty||0),0),p.status]}))">⇩ Export</button>
     <button class="btn" onclick="poDlg()">＋ New PO</button></div>
-  <div class="card tblwrap"><table><thead><tr><th>PO Number</th><th>Date</th><th>Customer</th><th>Lines</th><th class="r">Total Qty</th><th>Status</th><th class="r">Actions</th></tr></thead><tbody>
-  ${pos.length===0?`<tr><td colspan="7" class="mut" style="text-align:center;padding:30px">No purchase orders.</td></tr>`:
-   pos.map(p=>`<tr><td class="b">${esc(p.poNumber)}</td><td>${esc(p.poDate)}</td><td>${esc(p.customerName)}</td>
-    <td>${p.lineCount}</td><td class="r b">${p.totalQty.toLocaleString('en-IN')}</td>
-    <td><span class="badge ${stCls[p.status]||'gr'}">${p.status}</span>${p.dispatchedBy?`<div class="mut" style="font-size:11px">by ${esc(p.dispatchedBy)}</div>`:''}</td>
-    <td class="r"><button class="btn o sm" onclick="poView(${p.id})">👁</button>
-      ${p.status==='OPEN'?`<button class="btn sm" onclick="poDispatch(${p.id})">🚀 Dispatch</button>
-      <button class="btn o sm" onclick="poCancel(${p.id})">✕ Cancel</button>`:''}
-      <button class="btn o sm" style="color:#dc2626" onclick="delPo(${p.id})">🗑</button></td></tr>`).join('')}
-  </tbody></table></div>`;
+  ${pos.length===0?`<div class="card mut" style="text-align:center;padding:30px">No purchase orders.</div>`:''}
+  ${pos.map(p=>{ const lines=DB.poLines.filter(l=>Number(l.poId)===Number(p.id)); const prog=poProgress(p);
+    const open=p.status==='OPEN'||p.status==='PARTIAL';
+    return `<div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="h2" style="margin:0;font-size:16px">PO ${esc(p.poNumber)}</span>
+      <span class="badge ${stCls[p.status]||'gr'}">${p.status}</span>
+      <span class="mut">${esc(p.poDate||'')} · ${esc((customer(p.customerId)||{}).name||p.customerName||'—')}</span>
+      <span style="flex:1"></span>
+      <button class="btn o sm" onclick="poView(${p.id})">Details</button>
+      ${open?`<button class="btn sm" onclick="dispatchDlg(${p.id})">Dispatched</button>
+      ${p.status==='OPEN'?`<button class="btn o sm" onclick="poCancel(${p.id})">✕ Cancel</button>`:''}`:''}
+      <button class="btn o sm" style="color:#dc2626" onclick="delPo(${p.id})">🗑</button></div>
+    ${p.status!=='CANCELLED'?`<div class="mut" style="font-size:12px;margin-top:4px">${prog.dsp}/${prog.tot} dispatched (${prog.pct}%)</div>
+    <div style="height:6px;background:#e5e7eb;border-radius:3px;margin-top:4px;overflow:hidden"><div style="height:6px;background:#2563eb;border-radius:3px;width:${prog.pct}%"></div></div>`:''}
+    <div class="tblwrap" style="margin-top:8px"><table><thead><tr><th>Article</th><th class="r">Ordered</th><th class="r">Dispatched</th><th class="r">Balance</th></tr></thead><tbody>
+    ${lines.map(l=>{ const d=poDispatched(l.poId,l.productId); const bal=poBalance(l);
+      return `<tr><td>${esc((product(l.productId)||{}).name||'?')} <span class="mut">${esc(l.customerPartName||'')}</span></td>
+      <td class="r">${l.qty}</td><td class="r">${d}</td>
+      <td class="r" style="font-weight:700;color:${bal>0?'#d97706':'#059669'}">${bal>0?bal+' to dispatch':'✓ done'}</td></tr>`; }).join('')||'<tr><td colspan="4" class="mut">No articles</td></tr>'}
+    </tbody></table></div></div>`; }).join('')}`;
+}
+function dispatchDlg(id){ const p=DB.pos.find(x=>Number(x.id)===Number(id)); if(!p) return;
+  const lines=DB.poLines.filter(l=>Number(l.poId)===Number(id));
+  const ov=modal('Dispatch PO '+esc(p.poNumber),`
+  <table><thead><tr><th>Article</th><th class="r">Ordered</th><th class="r">Dispatched</th><th class="r">Balance</th><th class="r">Dispatch now</th></tr></thead><tbody>
+  ${lines.map((l,ix)=>{ const d=poDispatched(l.poId,l.productId); const bal=poBalance(l);
+    return `<tr><td>${esc((product(l.productId)||{}).name||'?')} <span class="mut">${esc(l.customerPartName||'')}</span></td>
+    <td class="r">${l.qty}</td><td class="r">${d}</td><td class="r b">${bal}</td>
+    <td class="r"><input id="dsp_q${ix}" data-dix="${ix}" type="number" min="0" max="${bal}" value="${bal}" style="width:80px"></td></tr>`; }).join('')}
+  </tbody></table>
+  <div class="frow2" style="margin-top:10px">
+    <div><span>Dispatch date</span><input id="dsp_dt" type="date" value="${today()}"></div>
+    <div><span>Invoice number *</span><input id="dsp_inv" placeholder="e.g. INV-1234"></div></div>
+  <div id="dsp_err" style="color:#dc2626;font-size:12px;min-height:16px"></div>
+  <div class="mut" id="dsp_bom" style="font-size:12px;margin-top:6px"></div>`,
+  `<button class="btn o" onclick="document.querySelector('.overlay').remove()">Cancel</button>
+   <button class="btn" id="dsp_save">Save dispatch</button>`);
+  const updBom=()=>{ const req={};
+    lines.forEach((l,ix)=>{ const q=Number(($('#dsp_q'+ix)||{}).value)||0; if(q<=0) return;
+      DB.bom.filter(b=>Number(b.productId)===Number(l.productId)).forEach(b=>{ req[b.itemId]=(req[b.itemId]||0)+Number(b.qtyPer)*q; }); });
+    $('#dsp_bom').innerHTML=Object.keys(req).length?('BOM requirement: '+Object.keys(req).map(iid=>{const it=item(iid)||{};return esc(it.name||'?')+': '+req[iid];}).join(' · ')):'';
+    return req; };
+  lines.forEach((l,ix)=>{ const el=$('#dsp_q'+ix); if(el) el.addEventListener('input',updBom); }); updBom();
+  $('#dsp_save').onclick=async()=>{ const inv=$('#dsp_inv').value.trim(); const dt=$('#dsp_dt').value||today();
+    if(!inv){ $('#dsp_err').innerText='Invoice number is required.'; return; }
+    const dl=lines.map((l,ix)=>({productId:l.productId,qty:Number(($('#dsp_q'+ix)||{}).value)||0})).filter(x=>x.qty>0);
+    if(!dl.length){ $('#dsp_err').innerText='Enter at least one dispatch quantity.'; return; }
+    $('#dsp_save').disabled=true;
+    try{ const r=await api({action:'dispatch',poId:id,lines:dl,dispatchDate:dt,invoiceNumber:inv});
+      ov.remove();
+      reloadAndStay('Dispatch recorded','ok',()=>{ localUpsert('pos',r.po); r.dispatches.forEach(d=>DB.dispatches.push(d));
+        (r.deductions||[]).forEach(dd=>{ const it=DB.items.find(i=>Number(i.id)===Number(dd.itemId)); if(!it) return;
+          it.stockOutput=Number(it.stockOutput)+dd.qty; it.stockInHand=Number(it.stockInHand)-dd.qty; }); });
+    }catch(e){ $('#dsp_save').disabled=false; $('#dsp_err').innerText=e.message; } };
 }
 function poView(id){ const p=DB.pos.find(x=>Number(x.id)===Number(id)); if(!p) return;
   const lines=DB.poLines.filter(l=>Number(l.poId)===Number(id));
+  const hist=DB.dispatches.filter(d=>Number(d.poId)===Number(id)).sort((a,b)=>Number(b.id)-Number(a.id));
   modal('PO '+esc(p.poNumber)+' — '+(customer(p.customerId)||{}).name,`
   ${p.notes?`<div class="note">${esc(p.notes)}</div>`:''}
-  <table><thead><tr><th>Customer Part</th><th>Our Product</th><th class="r">Qty</th></tr></thead><tbody>
-  ${lines.map(l=>`<tr><td>${esc(l.customerPartName||'—')} <span class="mut">${esc(l.customerPartNumber||'')}</span></td>
-    <td>${esc((product(l.productId)||{}).name||'?')}</td><td class="r b">${l.qty}</td></tr>`).join('')||'<tr><td colspan="3" class="mut">No lines</td></tr>'}
+  <table><thead><tr><th>Customer Part</th><th>Our Product</th><th class="r">Ordered</th><th class="r">Dispatched</th><th class="r">Balance</th></tr></thead><tbody>
+  ${lines.map(l=>{ const d=poDispatched(l.poId,l.productId);
+    return `<tr><td>${esc(l.customerPartName||'—')} <span class="mut">${esc(l.customerPartNumber||'')}</span></td>
+    <td>${esc((product(l.productId)||{}).name||'?')}</td><td class="r">${l.qty}</td><td class="r">${d}</td>
+    <td class="r b">${Math.max(0,Number(l.qty)-d)}</td></tr>`; }).join('')||'<tr><td colspan="5" class="mut">No lines</td></tr>'}
   </tbody></table>
+  ${hist.length?`<h3 style="margin:12px 0 6px;font-size:14px">Dispatch History</h3>
+  <table><thead><tr><th>Date</th><th>Invoice</th><th>Article</th><th class="r">Qty</th><th>By</th></tr></thead><tbody>
+  ${hist.map(d=>`<tr><td>${esc(d.dispatchDate||'')}</td><td>${esc(d.invoiceNumber||'')}</td><td>${esc(d.productName||'')}</td><td class="r b">${d.qty}</td><td class="mut">${esc(d.actor||'')}</td></tr>`).join('')}
+  </tbody></table>`:''}
   <h3 style="margin:12px 0 6px;font-size:14px">Material Requirements (BOM)</h3>
   ${poRequirements(p)}`,
   `<button class="btn" onclick="document.querySelector('.overlay').remove()">Close</button>`); }
@@ -1029,21 +1210,12 @@ function poRequirements(p){ const lines=DB.poLines.filter(l=>Number(l.poId)===Nu
   ${ids.map(iid=>{ const it=item(iid)||{}; const gap=(Number(it.stockInHand)||0)-req[iid];
     return `<tr><td>${esc(it.name||'?')}</td><td class="r">${req[iid]}</td><td class="r">${it.stockInHand||0}</td>
     <td class="r" style="color:${gap<0?'#dc2626':'#059669'};font-weight:700">${gap<0?gap:'+'+gap}</td></tr>`; }).join('')}</tbody></table>`; }
-function poDispatch(id){ confirmDlg('<b>Dispatch this PO?</b> Stock will be deducted from inventory per the BOM (Stock OUT movements are logged).',
-  async()=>{ try{ const po2=await api({action:'dispatch',poId:id});
-    reloadAndStay('PO dispatched','ok',()=>{ localUpsert('pos',po2);
-      DB.poLines.filter(l=>Number(l.poId)===Number(id)).forEach(l=>{
-        DB.bom.filter(b=>Number(b.productId)===Number(l.productId)).forEach(b=>{
-          const it=DB.items.find(i=>Number(i.id)===Number(b.itemId)); if(!it) return;
-          const take=Math.min(Number(b.qtyPer)*Number(l.qty),Number(it.stockInHand));
-          it.stockOutput=Number(it.stockOutput)+take; it.stockInHand=Math.max(0,Number(it.stockInHand)-take); }); });
-    }); }catch(e){ toast(e.message,'err'); } }); }
 function poCancel(id){ confirmDlg('Cancel this PO? No stock movement.',async()=>{ const p=DB.pos.find(x=>Number(x.id)===Number(id));
   p.status='CANCELLED'; const saved=await api({action:'update',entity:'pos',record:p}); reloadAndStay('PO cancelled','ok',()=>localUpsert('pos',saved)); }); }
-function delPo(id){ confirmDlg('Delete this PO and its lines?',async()=>{
+function delPo(id){ confirmDlg('Delete this PO, its lines and dispatch records?',async()=>{
   const lines=DB.poLines.filter(l=>Number(l.poId)===Number(id));
   for(const l of lines) await api({action:'remove',entity:'poLines',id:l.id});
-  await api({action:'remove',entity:'pos',id}); reloadAndStay('PO deleted','ok',()=>{ localRemove('pos',id); const ix=[]; DB.poLines.forEach((l,i)=>{ if(Number(l.poId)===Number(id)) ix.push(i); }); ix.reverse().forEach(i=>DB.poLines.splice(i,1)); }); }); }
+  await api({action:'remove',entity:'pos',id}); reloadAndStay('PO deleted','ok',()=>{ localRemove('pos',id); const ix=[]; DB.poLines.forEach((l,i)=>{ if(Number(l.poId)===Number(id)) ix.push(i); }); ix.reverse().forEach(i=>DB.poLines.splice(i,1)); const dx=[]; DB.dispatches.forEach((d,i)=>{ if(Number(d.poId)===Number(id)) dx.push(i); }); dx.reverse().forEach(i=>DB.dispatches.splice(i,1)); }); }); }
 function poDlg(){ poDraft={lines:[{customerPartName:'',customerPartNumber:'',productId:'',qty:1}]};
   renderPoDlg(''); }
 function renderPoDlg(err){ const d=poDraft;
@@ -1080,12 +1252,12 @@ async function savePo(){ const d=poDraft; d.poNumber=$('#po_no').value.trim(); d
 /* ================= ANALYSIS ================= */
 let deadDays=90;
 function computeAnalysis(){
-  const openPos=DB.pos.filter(p=>p.status==='OPEN');
+  const openPos=DB.pos.filter(p=>p.status==='OPEN'||p.status==='PARTIAL');
   const bomByProd={}; DB.bom.forEach(b=>{(bomByProd[b.productId]=bomByProd[b.productId]||[]).push(b);});
   const required={}; const poRows=openPos.map(po=>{
     let totalQty=0; const poReq={};
-    DB.poLines.filter(l=>Number(l.poId)===Number(po.id)).forEach(l=>{ totalQty+=Number(l.qty||0);
-      (bomByProd[l.productId]||[]).forEach(b=>{ const need=Number(b.qtyPer)*Number(l.qty);
+    DB.poLines.filter(l=>Number(l.poId)===Number(po.id)).forEach(l=>{ const bal=poBalance(l); totalQty+=bal;
+      (bomByProd[l.productId]||[]).forEach(b=>{ const need=Number(b.qtyPer)*bal;
         poReq[b.itemId]=(poReq[b.itemId]||0)+need; required[b.itemId]=(required[b.itemId]||0)+need; }); });
     let shortageUnits=0;
     for(const iid in poReq){ const onHand=Number((item(iid)||{}).stockInHand)||0;
@@ -1284,16 +1456,25 @@ function pgAdmin(){
       <input id="set_api" style="width:100%" value="${esc(API)}">
       <div class="mut" style="font-size:11px;margin-top:3px">Pre-filled with the built-in default — the app works out of the box. <b>Only change this if you redeploy the backend and the URL changes</b> (Deploy → Manage deployments → <b>Web app URL</b>, ends in <code>/exec</code>; do NOT use the Library URL).
       ${localStorage.getItem('mv_api') ? '<br><b style="color:#b45309">⚠ A saved override is active</b> — the app is using the saved URL, not the hard-coded one. Click “↺ Reset to Built-in URL” to go back.' : '<br><b style="color:#059669">✓ Using the hard-coded URL</b> built into index.html.'}</div></div>
-    <div><span class="lbl">Hugging Face token (for bill OCR)</span>
-      <input id="set_hf" style="width:100%" value="${esc(localStorage.getItem('mv_hf')||'')}" placeholder="hf_…">
-      <div class="mut" style="font-size:11px;margin-top:3px">Fine-grained token with <b>“Make calls to Inference Providers”</b> permission (huggingface.co → Settings → Access Tokens).</div></div></div>
-    <button class="btn" onclick="localStorage.setItem('mv_api',document.getElementById('set_api').value.trim());localStorage.setItem('mv_hf',document.getElementById('set_hf').value.trim());toast('Saved — reloading','ok');setTimeout(()=>location.reload(),700)">Save Settings</button>
+    </div>
+    <button class="btn" onclick="localStorage.setItem('mv_api',document.getElementById('set_api').value.trim());toast('Saved — reloading','ok');setTimeout(()=>location.reload(),700)">Save Settings</button>
     <button class="btn o" onclick="testConn()">Test Connection</button>
     <button class="btn o" onclick="localStorage.removeItem('mv_api');toast('Reset to the hard-coded URL — reloading','ok');setTimeout(()=>location.reload(),700)" title="Forget any saved URL and go back to the deployment URL hard-coded inside index.html">↺ Reset to Built-in URL</button>
     <button class="btn o" onclick="fixImgSharing()" title="Re-apply public sharing to every uploaded image so they display in the app">🖼 Fix Image Sharing</button>
     <button class="btn o" onclick="api({action:'bootstrap'}).then(r=>toast(r&&r.spreadsheetUrl?('Sheets ready — '+(r.mode==='bound'?'bound spreadsheet':'auto-created sheet')+': '+r.spreadsheetUrl):'Sheets verified/created','ok')).catch(e=>toast(e.message,'err'))">Create/Verify Sheet Tabs</button>
     <button class="btn o" id="stBtn" onclick="runSelfTest()">🧪 Run Backend Self-Test</button>
     <div id="st_out" style="margin-top:10px"></div></div>
+  <div class="card" style="padding:14px;margin-bottom:14px"><b>✨ OCR engine (invoice reading)</b>
+    <p class="mut" style="margin:6px 0 10px;font-size:12px">The browser never talks to the OCR provider directly — your token stays in the Google Sheet (Settings tab), server-side. <b>Hugging Face</b> = zero setup, needs a free token. <b>Custom endpoint</b> = run your own PaddleOCR server (see README) for maximum robustness — invoices are read on your own machine.</p>
+    <div class="frow3"><div><span class="lbl">Provider</span><select id="ocr_prov" style="width:100%">
+      <option value="huggingface">Hugging Face (Unlimited-OCR)</option><option value="custom">Custom OCR endpoint (self-hosted PaddleOCR)</option></select></div>
+    <div><span class="lbl">Endpoint URL (custom only)</span><input id="ocr_ep" style="width:100%" placeholder="https://your-server:8765/ocr"></div>
+    <div><span class="lbl">Token (HF only, hf_…)</span><input id="ocr_tok" style="width:100%" placeholder="fine-grained: Inference Providers permission"></div></div>
+    <div style="margin-top:10px"><button class="btn" id="ocrGo" onclick="saveOcrSettings()">Save OCR settings</button>
+    <span id="ocr_st" class="mut" style="font-size:12px;margin-left:8px"></span></div></div>
+  <div class="card" style="padding:14px;margin-bottom:14px"><b>🗂️ Dropdown categories</b>
+    <p class="mut" style="margin:6px 0 10px;font-size:12px">Options for Company, Material Type, Source and Payment Mode dropdowns — stored in the sheet, so the whole team sees the same lists. Delete with ✕, add at the bottom of each group. (You can also add inline: pick “＋ New…” inside any dropdown.)</p>
+    <div id="cat_mgr"></div></div>
   <div class="card" style="padding:14px;margin-bottom:14px"><b>📷 Image Staging (Google Drive)</b>
     <p class="mut" style="margin:6px 0 10px;font-size:12px">Add photos here with a proper name — each is renamed (<code>PART_&lt;name&gt;.jpg</code> or <code>PRODUCT_&lt;name&gt;.jpg</code>) and saved in the app's Drive folder. Access them any time below, <b>download (⬇)</b>, and when ready add them to the repo's <code>images/</code> folder to assign via the <b>📁 repo pool</b>.</p>
     <div class="frow3"><div><span class="lbl">Photo *</span><input type="file" accept="image/*" id="stg_file" style="width:100%"></div>
@@ -1319,7 +1500,32 @@ function pgAdmin(){
      <td>${esc(a.entity)} #${esc(a.entityId)}</td><td class="mut">${esc(a.detail)}</td></tr>`).join('')||'<tr><td colspan="5" class="mut" style="text-align:center;padding:20px">No activity yet.</td></tr>'}
    </tbody></table></div>`;
   renderStaged();
+  loadOcrSettings();
+  renderCatMgr();
 }
+async function loadOcrSettings(){ try{ const r=await api({action:'getOcr'});
+  $('#ocr_prov').value=r.provider||'huggingface'; $('#ocr_ep').value=r.endpoint||''; $('#ocr_tok').value=r.token||'';
+  $('#ocr_st').textContent='Loaded from sheet'; }catch(e){ $('#ocr_st').textContent='Could not load: '+e.message; } }
+async function saveOcrSettings(){ try{ $('#ocrGo').disabled=true;
+  await api({action:'saveOcr',provider:$('#ocr_prov').value,endpoint:$('#ocr_ep').value.trim(),hfToken:$('#ocr_tok').value.trim()});
+  $('#ocr_st').textContent='✓ Saved — OCR in Bills uses this engine now'; $('#ocr_st').style.color='#059669'; toast('OCR settings saved','ok');
+  }catch(e){ $('#ocr_st').textContent=e.message; toast(e.message,'err'); } $('#ocrGo').disabled=false; }
+function renderCatMgr(){ const el=$('#cat_mgr'); if(!el) return;
+  el.innerHTML = OPTION_CATS.map(cat=>{ const opts=(((DB.options||{})[cat])||[]).filter(Boolean);
+    return `<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;margin-bottom:4px">${esc(OPTION_LABELS[cat]||cat)}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${opts.map(o=>
+      `<span class="badge gr" style="display:inline-flex;align-items:center;gap:5px">${esc(o)}<a href="#" onclick="delCatOpt('${cat}','${esc(o).replace(/'/g,"\'")}');return false" style="color:#dc2626;text-decoration:none;font-weight:700" title="Delete">✕</a></span>`).join('')||'<span class="mut" style="font-size:11px">no options</span>'}
+    <span style="display:inline-flex;gap:4px;margin-left:4px"><input id="cat_add_${cat}" placeholder="Add…" style="width:110px;padding:2px 6px;font-size:12px">
+    <button class="btn o sm" onclick="addCatOpt('${cat}')">＋ Add</button></span></div></div>`; }).join(''); }
+async function addCatOpt(cat){ const inp=$('#cat_add_'+cat); const v=(inp.value||'').trim(); if(!v) return;
+  const cur=(((DB.options||{})[cat])||[]).slice();
+  if(!cur.map(x=>String(x).toLowerCase()).includes(v.toLowerCase())) cur.push(v);
+  try{ DB.options=await api({action:'saveOptions',options:Object.assign({},DB.options,{[cat]:cur})});
+    renderCatMgr(); toast('Added “'+v+'” to '+(OPTION_LABELS[cat]||cat),'ok'); }catch(e){ toast(e.message,'err'); } }
+function delCatOpt(cat,val){ confirmDlg('Delete option <b>'+esc(val)+'</b> from '+(OPTION_LABELS[cat]||cat)+'? Existing records keep their value; it just disappears from the dropdown.',async()=>{
+  const cur=(((DB.options||{})[cat])||[]).filter(x=>x!==val);
+  try{ DB.options=await api({action:'saveOptions',options:Object.assign({},DB.options,{[cat]:cur})});
+    renderCatMgr(); toast('Deleted “'+val+'”','ok'); }catch(e){ toast(e.message,'err'); } }); }
 async function changePass(){
   const cur=$('#pc_cur').value, nw=$('#pc_new').value, cf=$('#pc_cf').value;
   if(nw.length<4) return toast('New passcode must be at least 4 characters','err');
