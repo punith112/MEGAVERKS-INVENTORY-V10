@@ -124,19 +124,34 @@ Two engines, switchable in **🛡️ Admin → ✨ OCR engine**:
    "Make calls to Inference Providers" permission (huggingface.co → Settings → Access Tokens),
    pasted in Admin → OCR engine. If the provider is down you get a clear message — photo
    attachment and manual entry always work.
-2. **Custom endpoint (self-hosted PaddleOCR, recommended for robustness)** — run your own
-   OCR server (derived from PaddlePaddle/PaddleOCR, PP-OCRv4). It runs fully offline on
-   your own machine/server, handles rotated/noisy phone photos well (~2s per page), and no
-   invoice ever leaves your network.
+2. **Custom endpoint (self-hosted OCR server v2, recommended for robustness)** — run your
+   own OCR server: **OpenCV preprocessing + PP-OCRv4 recognition**, fully offline on your
+   own machine/server, and no invoice ever leaves your network.
 
-### Self-hosting the PaddleOCR server (included: `ocr_server.py`)
+### OCR server v2 — OpenCV pipeline (rebuilt, images + PDF)
+
+The rebuilt `ocr_server.py` is far more robust than a plain OCR call:
+
+- **PDF support** — invoice PDFs are rendered at 300 DPI (pypdfium2, up to 5 pages) and read page by page. The app's OCR field accepts `application/pdf` alongside photos.
+- **OpenCV pre-processing with best-variant selection** — every page is OCR'd through multiple cleaned variants and the highest-confidence result wins:
+  auto resize/upscale, CLAHE contrast equalisation, fastNlMeans denoising,
+  **minAreaRect deskew** (straightens tilted photos/scans), Otsu + adaptive-Gaussian
+  binarisation, and unsharp-mask sharpening.
+- **Geometry-aware reading order** — detected boxes are clustered into lines by vertical overlap and sorted left→right, so columns never interleave.
+- **Tolerant field parsing** — GSTIN repair for OCR confusions (`O↔0`, `2↔Z`), many invoice-number/date label formats, and a grand-total fallback that picks the largest amount in the bottom of the bill.
+
+Verified by an automated accuracy suite: clean, rotated (±3°), gaussian-noise, low-res,
+and low-contrast invoice photos **plus a PDF invoice** — 51/51 checks extract the correct
+vendor, GSTIN, phone, invoice number, date and total.
+
+### Self-hosting the OCR server (included: `ocr_server.py`)
 
 ```bash
-pip install rapidocr_onnxruntime      # PP-OCRv4 models, no PaddlePaddle needed
+pip install rapidocr_onnxruntime opencv-python pypdfium2 numpy
 python3 ocr_server.py 8765            # serves POST /ocr and GET /health
 ```
 
-- `POST /ocr  { "image": "data:image/jpeg;base64,..." }` → `{ ok, text, fields:{ gstin, phone, invoiceNumber, invoiceDate, grandTotal, vendor, address, buyer } }`
+- `POST /ocr  { "image": "data:image/jpeg;base64,..." }` — also accepts `data:application/pdf;base64,...` → `{ ok, engine, version, pages, variant, text, fields:{ gstin, phone, invoiceNumber, invoiceDate, grandTotal, vendor, address, buyer } }`
 - Then set **Admin → ✨ OCR engine → Provider: Custom OCR endpoint → URL: `http://your-server:8765/ocr`** → Save.
 - For permanent use put it on a small VM/always-on PC (systemd service or `nohup`), and expose the URL over HTTPS (nginx/Caddy or a tunnel) — the Apps Script backend calls this URL, so it must be reachable from the internet.
 - OCR settings (provider, endpoint, token) are stored in the sheet's Settings tab.
@@ -224,11 +239,62 @@ A new **📤 Vendor POs** page (top nav) lets you raise professional purchase or
 ### Raw Material Sheets section (🔩 Raw Material)
 - **Sheet types with your presets:** CRCA/MS (0.8, 1, 1.2, 1.6, 2, 2.5, 3 mm), GP With Laminate 120 GSM (2 mm), HRPO (1, 1.5, 2, 2.5, 3 mm), SS 304 / SS 202 (0.6 & 1 mm Single Side Matt, 2 mm 2B finish); sizes 8 ft × 4 ft (2500 × 1250 mm) and 10 ft × 5 ft (3000 × 1500 mm) — plus free-text custom values for anything else.
 - **⇲ Receive:** sheets + date + ₹/kg + vendor + vendor invoice no (required) + **weighment slip photo** (saved to Drive, attached to the bill). Stock increases, a vendor **bill is auto-created and interlinked** (kg × ₹/kg total), and the sheet's ₹/kg updates to the latest purchase.
-- **⇱ Daily usage:** sheets used (never more than in hand) + date + **customer + job done** — stock subtracts immediately.
+- **Sheets In Hand (editable):** the sheet-type dialog now has a **Sheets In Hand** field — enter opening stock when adding a type, or correct the count anytime when editing. Every change is logged as an **ADJ entry in History** (e.g. "Stock correction 40 → 35"), so stock is always auditable.
+- **⇱ Daily usage (end-of-day entry):** sheets used (never more than in hand) + date + **customer + P.O/reference + job done** — the P.O box auto-lists that customer's purchase orders, or type any reference. Stock subtracts immediately.
+
+### Raw Material Usage section (📝 RM Usage — new page)
+- Dedicated end-of-day entry page: **date (selectable) → sheet type → operation → sheets used → purpose → customer → P.O/reference → job done**.
+- **Operation** is one of **Punching / Laser / Hand Cutting / Ducting**.
+- The sheet-type dropdown shows live availability ("CRCA / MS · 2.5 mm — 20 available"); saving subtracts from the master list instantly and the log + Raw Material page show the updated available sheets.
+- Over-use is blocked ("Only N sheets available"), every entry records operation, purpose, kg (auto from kg/sheet), customer, P.O and user — with edit/delete that recalculates stock.
+- The ⇱ quick-entry dialog on the Raw Material page now captures operation + purpose too.
 - **🕓 History:** every receipt/usage with slip viewer links; entries can be **edited (amendment)** or deleted — stock totals auto-recalculate.
 - **📈 Procurement price trends:** per sheet type — sparkline chart of ₹/kg over time, latest/min/max price, % change since first purchase, and a full dated table (date, vendor, invoice, qty, ₹/kg).
 - Everything else editable: thickness, grade, finish, size, kg/sheet, min-stock alert, vendor, notes. CSV export included.
 
 All raw-material data lives in the `RawMaterials` + `RawMatMoves` sheet tabs, so it syncs across every user and is backed up with the rest of the spreadsheet.
 
-Tested: 185 backend + 177 browser tests, all passing (run twice, error-free).
+### Bills → Raw Material (works from the other side too)
+- In **Add Vendor Bill**, each line now has a **sheet-type dropdown** under the description plus a **Sheets (Nos)** box.
+- Enter the bill exactly as printed: e.g. *GI Coil / Sheet 0.80 X 1250 X 2000 — 255 Nos, 3,970 kg @ ₹84/kg* → Qty = weight in kg, Rate = ₹/kg, Sheets = 255.
+- On Save, the sheets are added to Raw Material stock as a receipt interlinked to the bill (same invoice no., vendor, ₹/kg, and the bill photo doubles as the weighment slip). The sheet's ₹/kg updates and **kg-per-sheet is auto-derived** (kg ÷ sheets) when not set.
+- So you can receive raw material either from the Raw Material page (⇲ Receive creates the bill) or straight from the bill (creates the receipt) — both stay in sync.
+
+### Help & User Manual
+- The **❓ Help** dialog is updated for every feature — PO grouping/search/amendment, Vendor POs (PDF/WhatsApp/XLSX), multi-vendor prices, multi-product parts, Raw Material (receive/usage/trends/weighment slips) and the RM Usage daily page.
+- A downloadable **User Manual PDF** (`MEGAVERKS-Inventory-User-Manual.pdf`) ships with the app — the Help dialog has a **Download Manual** button so any user can save and share the full operating guide. Upload the PDF to the repo next to `index.html`.
+
+### Vendor Comparison fully synced with Inventory (Analysis)
+- The ⚖️ Vendor Comparison dropdown is **populated on page load** — no typing needed — and always mirrors the inventory list.
+- Articles supplied **only through the multi-vendor price list** (no primary vendor set) now appear too, showing all their vendors and prices.
+- Select any article → price / lead-time / credit-period charts per vendor, BEST badges, and the verdict line. Price amendments in Inventory reflect here on the next view.
+
+### Multi-user sync hardening (5–6 concurrent users)
+- **Single-call refresh:** the whole database now loads in ONE `listAll` request instead of 17 separate ones — far lighter on Apps Script when the whole team is online. Falls back automatically on older backends.
+- **Server write lock:** saves are serialised with `LockService`, so two users creating records at the same second get distinct IDs and never overwrite each other's rows.
+- **Never lose the screen:** if a refresh fails (network blip, Apps Script cold start), the data already on screen stays — nothing ever blanks out. A failed entity keeps its last-known rows.
+- **Silent retry:** network calls retry once before reporting an error.
+- **Always fresh:** sync runs every 45 s, on tab focus, on returning to the tab (visibility change), and immediately when the network comes back; the top bar shows "Synced …" or "⚠ offline — will retry".
+- Help dialog updated with a multi-user sync note.
+
+### Export ⇄ Bulk Upload round trip (every section)
+- **Every data page now has ⇩ Export** (Inventory, Raw Material, RM Usage, Orders, Vendor POs, Customers, Bills, Vendors, Products) — the CSV uses the **exact spreadsheet column format**, so it round-trips.
+- **⇪ Bulk Upload accepts the same file back**: rows with an existing `id` are **updated in place**, rows without an id are **added**, and re-uploading an unchanged export creates **zero duplicates**. Edit in Excel in between.
+- Orders and Vendor POs export two linked files (header + lines) — upload each back on its page.
+- The legacy friendly Excel format (Item Name, Part Number, …) still works for items / vendors / products / POs.
+- New backend action `bulkImport` (LockService-serialised) powers the round trip; photo/PDF columns (`imageData`, `attachmentData`, `weightSlipData`) are never touched by CSV import — blank means "keep the existing file".
+- `settings` and `audit` tabs refuse bulk upload; unknown entities and empty rows are safely rejected/skipped.
+
+### Connection watchdog — sync recovers by itself
+- Every API answer updates a live connection state. On a drop, the top bar shows **"⚠ offline — will retry"** and a watchdog pings the backend every 20 s; the moment it answers, the app **reloads all data and re-renders automatically** — nobody needs to open Admin → Test Connection.
+- All bulk uploads (legacy + round-trip) now run inside the server write lock, so simultaneous imports from several users can't race.
+
+⚠️ **Code.gs changed — redeploy required** (Deploy → Manage deployments → ✎ → New version → Deploy).
+
+### OCR server v2 — OpenCV-enhanced recognition (images + PDF)
+- The invoice OCR stack was rebuilt: **OpenCV preprocessing pipeline** (auto-resize, CLAHE contrast, fastNlMeans denoise, **minAreaRect deskew**, Otsu/adaptive binarisation, unsharp sharpen) runs PP-OCRv4 on multiple variants and keeps the best-confidence result; boxes are re-ordered into true reading order; field parsing repairs common OCR misreads (O↔0, 2↔Z in GSTIN) and finds totals even without a "Grand Total" label.
+- **PDF invoices supported** — rendered at 300 DPI and read page by page; the bill dialog's OCR field now accepts `application/pdf`.
+- Bill dialog OCR now sends sharper 2000px photos for better accuracy.
+- ⚠️ If you self-host the OCR server, update it: `pip install rapidocr_onnxruntime opencv-python pypdfium2 numpy` and restart `ocr_server.py`.
+
+Tested: 208 backend + 232 browser tests + 51 OCR accuracy checks (clean/rotated/noisy/low-res/dark/PDF), all passing (run twice, error-free).
